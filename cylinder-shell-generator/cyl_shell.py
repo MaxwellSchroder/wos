@@ -13,7 +13,9 @@
 #
 
 import sympy as sp
-from math import log, cos, pi
+from math import log, cos, pi, sin, tan
+import matplotlib.pyplot as plt
+import numpy as np
 
 # we make these sympy symbols global because we may want to
 # interact with them inside and outside of the class
@@ -82,7 +84,6 @@ def test():
             Ts.append(cyl.temperature(r, theta))
     Ts = np.array(Ts, dtype=float)
     Ts = Ts.reshape(len(thetas), len(rs))
-    print(str(Ts))
 
     r, theta = np.meshgrid(rs, thetas)
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
@@ -92,8 +93,23 @@ def test():
     cb = fig.colorbar(cax, location='bottom')
     cb.set_label("temperature, K")
 
-    plt.savefig('cyl-T-dist2.png', dpi=600)
+    plt.savefig('cyl-T-dist.png', dpi=600)
+
+    # Transform R - Theta and Temperature values into an [x, y, Temperature]
+    xyt_solution = []
+    for theta in range(len(thetas)):
+        for r in range(len(rs)):
+            x = rs[r] * cos(thetas[theta])
+            y = rs[r] * sin(thetas[theta])
+            temp = Ts[theta][r]
+            xyt_solution.append([x,y,temp])
     
+    # Write analytical solution to file
+    with open('analytical_solution.csv', 'w') as f:
+        for x, y, t in xyt_solution:
+            f.write(f"{x},{y},{t}\n")
+
+    print("Analytical solution have been written to analytical_solution.csv. Format = [x,y,t \n x,y,t...]")
 
 if __name__ == '__main__':
     test()
