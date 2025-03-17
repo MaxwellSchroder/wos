@@ -4,7 +4,7 @@ This project solves a 2D heat diffusion problem using a C++ solver and provides 
 
 ## Prerequisites
 
-* Python 3.x
+* Python 3.8
 * C++ compiler (e.g., g++)
 
 ## Installation
