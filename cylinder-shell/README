@@ -1,0 +1,65 @@
+Temperature distribution in a cylindrical shell
+===============================================
+
+FILES
+-----
+cyl_shell.py   :: Python module to evaluate the analytical solution
+cyl-T-dist.png :: example output figure
+
+PREREQUISITES
+-------------
+
+
+I built a Python virtual environment to run the script, and installed the following packages:
+
+> pip install sympy numpy matplotlib
+
+This grabbed other dependencies, resulting in a virtual environment with:
+
+Package         Version
+--------------- -----------
+contourpy       1.3.0
+cycler          0.12.1
+fonttools       4.54.1
+kiwisolver      1.4.7
+matplotlib      3.9.2
+mpmath          1.3.0
+numpy           2.1.2
+packaging       24.1
+pillow          11.0.0
+pyparsing       3.2.0
+python-dateutil 2.9.0.post0
+six             1.16.0
+sympy           1.13.3
+
+The code should work with any relatively recent versions of packages.
+These precise package versions are not required.
+
+
+NOTES
+-----
+
+1. The analytical solution is taken from Example 4.4 in Hahn and Ozisik (2012).
+   Their cylindrical shell sweeps in angle (radians) from phi = 0 to some end point phi = phi0,
+   and has an inner radius (a) and an outer radius (b).
+   Boundary conditions (BCs) are:
+   imposed flux (as function of phi) on outer shell
+   insulation (zero flux) on cut boundaries of shell
+   T = 0 on inner boundary (T = 0 is a convenient choice for analytical solution in terms of BC treatment)
+
+2. The analytical solution is actually a sum to infinity.
+   The sum converges quite quickly.
+   The default number of terms for the sum is set to 10.
+   Accuracy is tied to number of terms so it might be worth a small experiment with number of terms
+   to get a desired accuracy.
+   The number of terms is controlled as a class variable _n_terms (but could be made caller configurable if desired)
+
+3. Python class gives solution for temperature as a function of radius (r) and angle (theta) -- in radians.
+   The example assumes pi/2 <= theta <= pi.
+   The user sets an inner temperature for the cylinder (T_i)
+   The user supplys the flux as a function PHI (so they'll need to map theta back to PHI)
+
+4. The example inputs are designed to mimic the physical situation in an experiment by Wieting (1987),
+   and this is an Eilmer test case described at:
+   https://gdtk.uqcloud.net/docs/eilmer/eilmer-catalog-for-hugo/#_2dcht_hollow_cylindertransient_fluid_transient_solid
+
