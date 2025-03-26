@@ -16,6 +16,8 @@ import sympy as sp
 from math import log, cos, pi, sin, tan
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.tri as tri
+
 
 # we make these sympy symbols global because we may want to
 # interact with them inside and outside of the class
@@ -97,19 +99,32 @@ def test():
 
     # Transform R - Theta and Temperature values into an [x, y, Temperature]
     xyt_solution = []
-    for theta in range(len(thetas)):
-        for r in range(len(rs)):
-            x = rs[r] * cos(thetas[theta])
-            y = rs[r] * sin(thetas[theta])
-            temp = Ts[theta][r]
-            xyt_solution.append([x,y,temp])
+    for i_theta, theta in enumerate(thetas):
+        for i_r, r in enumerate(rs):
+            x = r * cos(theta)
+            y = r * sin(theta)
+            temp = Ts[i_theta][i_r]
+            xyt_solution.append([x, y, temp])
     
     # Write analytical solution to file
     with open('analytical_solution.csv', 'w') as f:
         for x, y, t in xyt_solution:
             f.write(f"{x},{y},{t}\n")
-
+    
     print("Analytical solution have been written to analytical_solution.csv. Format = [x,y,t \n x,y,t...]")
+
+    x_vals = [x for x, y, t in xyt_solution]
+    y_vals = [y for x, y, t in xyt_solution]
+    t_vals = [t for x, y, t in xyt_solution]
+
+    plt.figure()
+    plt.scatter(x_vals, y_vals, c=t_vals, cmap='hot')
+    plt.gca().set_aspect('equal')
+    plt.colorbar(label='Temperature (K)')
+    plt.title("Temperature distribution in Cartesian (x, y) space")
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.show()
 
 if __name__ == '__main__':
     test()
