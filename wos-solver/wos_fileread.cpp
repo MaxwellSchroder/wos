@@ -12,7 +12,7 @@
 #include <random>
 #include <vector>
 #include <fstream>
-#include <nanoflann.hpp>
+#include "nanoflann.hpp"
 
 using namespace std;
 
@@ -208,8 +208,32 @@ void printScene(const std::vector<Segment>& scene3) {
       std::cerr << "Segment from (" << real(segment[0]) << ", " << imag(segment[0]) << ") "
                << "to (" << real(segment[1]) << ", " << imag(segment[1]) << ")\n";
    }
-   cerr << "DOne!" << endl;
+   cerr << "Done!" << endl;
 
+}
+
+void runDenseGridEstimation(const std::vector<Segment>& scene, const std::string& outputFile, int resolution = 256) {
+   std::ofstream out(outputFile);
+   if (!out.is_open()) {
+       std::cerr << "Error: could not open output file: " << outputFile << std::endl;
+       return;
+   }
+
+   for (int j = 0; j < resolution; ++j) {
+       std::cerr << "row " << j << " of " << resolution << std::endl;
+       for (int i = 0; i < resolution; ++i) {
+           Vec2D x0((float)i / (float)resolution, (float)j / (float)resolution);
+           double u = 0.0;
+
+           if (insideDomain(x0, scene)) {
+               u = solve(x0, scene, treeBasedTemperatureQuery);
+           }
+
+           out << u;
+           if (i < resolution - 1) out << ",";
+       }
+       out << "\n";
+   }
 }
 
 int main( int argc, char** argv ) {
@@ -222,25 +246,8 @@ int main( int argc, char** argv ) {
    srand( time(NULL) );
    ofstream out( "out.csv" );
 
-   int s = 256; // image size
-   for( int j = 0; j < s; j++ )
-   {
-      cerr << "row "  << j <<  " of " << s << endl;
-      for( int i = 0; i < s; i++ )
-      {
-         Vec2D x0( (float)i/(float)s, (float)j/(float)s );
-         // double u = solve( x0, scene3, customTemperature );
-         double u = 0.;
-         // check that the point x0 in the image is actually inside of the domain.
-         if (insideDomain(x0, scene)) {
-            u = solve( x0, scene, treeBasedTemperatureQuery );
-         }
-         
-         out << u;
-         if( i < s-1 ) out << ",";
-      }
-      out << endl;
-   }
+   runDenseGridEstimation(scene, "out.csv");
+
+   std::cerr << "Finished!" << std::endl;
    return 0;
-   cerr << "Finished!" << endl;
 }
