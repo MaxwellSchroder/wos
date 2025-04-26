@@ -77,6 +77,12 @@ size_t nearest_index;
 float out_dist_sqr;
 nanoflann::KNNResultSet<float> resultSet(1);
 
+// Manual experiment Results struct to store everything
+struct ExperimentResult {
+   float epsilon;
+   int nWalks;
+   float l1_error;
+};
 
 // returns the point on segment s closest to x
 Vec2D closestPoint( Vec2D x, Segment s ) {
@@ -259,7 +265,20 @@ void printScene(const std::vector<Segment>& scene3) {
                << "to (" << real(segment[1]) << ", " << imag(segment[1]) << ")\n";
    }
    cerr << "Done!" << endl;
+}
 
+// This function takes out ExperimentResults struct, and then outputs to a known format in CSV
+void writeResultsToCSV(const std::vector<ExperimentResult>& results, const std::string& filename) {
+   std::ofstream out(filename);
+   if (!out.is_open()) {
+       std::cerr << "Error: Could not open output file " << filename << "\n";
+       return;
+   }
+   out << "epsilon,nWalks,l1_error\n"; // header
+   for (const auto& res : results) {
+       out << res.epsilon << "," << res.nWalks << "," << res.l1_error << "\n";
+   }
+   out.close();
 }
 
 void readInteriorPointsT(const std::string& filename, std::vector<std::tuple<Vec2D, float>>& points) {
@@ -323,14 +342,8 @@ void testSinglePointConvergence(
    int maxWalks,
    int walkCheckpointIncrement,
    float eps,
-   const std::string& outputFile = "walk_vs_error.csv"
+   std::vector<ExperimentResult>& results
 ) {
-   std::ofstream out(outputFile);
-   if (!out.is_open()) {
-       std::cerr << "Error: Could not open output file: " << outputFile << std::endl;
-       return;
-   }
-
    float running_sum = 0.0;
    int walks_completed = 0;
 
@@ -343,14 +356,14 @@ void testSinglePointConvergence(
        if (walk_counter >= minWalks && (walk_counter - minWalks) % walkCheckpointIncrement == 0) {
            float T_estimate = running_sum / walks_completed;
            float l1_error = std::abs(T_estimate - T_true);
+           results.push_back({eps, walk_counter, l1_error});
 
-           out << walk_counter << "," << l1_error << "\n";
-           std::cerr << "[Walks = " << walk_counter << "] T_est = " << T_estimate
-                     << ", T_true = " << T_true << ", L1 error = " << l1_error << "\n";
+         //   std::cerr << "[Walks = " << walk_counter << "] T_est = " << T_estimate
+         //             << ", T_true = " << T_true << ", L1 error = " << l1_error << "\n";
        }
    }
 
-   std::cerr << "Finished writing cumulative error data to " << outputFile << "\n";
+   std::cerr << "Finished writing cumulative Walks and L1 Error data to results for Eps = " << eps << "\n";
 }
 
 void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
@@ -388,10 +401,6 @@ void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
 }
 
 int main( int argc, char** argv ) {
-   // seed random for reproduceable results
-   srand(1234);
-   // srand( time(NULL) );
-
    // Read in the combined_coordinates, and generate the scene vector<Segment>
    vector<Segment> scene;
    readCSVandAppendSegments("boundary_representation.csv",scene);
@@ -414,19 +423,28 @@ int main( int argc, char** argv ) {
       std::cout << "Calculated flat index for middle point: " << flat_index << std::endl;
 
       auto [test_point, T_true] = interior_points_T[flat_index]; // test_point::(x,y), t_true::Int
-
+      
       if (!insideDomain(test_point, scene)) {
          std::cerr << "WARNING: Selected test point is NOT inside the domain!\n";
       } else {
          std::cerr << "Point selected is inside of the domain!\n";
       }
-
-      const float eps = 0.01;
+      
+      std::vector<float> epsilons = {0.05f, 0.02f, 0.01f, 0.005f, 0.002f, 0.001f, 0.0005f};
       const int nWalkLowerLimit = 1;
-      const int nWalkUpperLimit = static_cast<int>(std::pow(2, 14));
+      const int nWalkUpperLimit = static_cast<int>(std::pow(2, 15));
       const int nWalkIncrement = 1;
+      std::vector<ExperimentResult> results;
 
-      testSinglePointConvergence(test_point, scene, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, "error_plot_x0.csv");
+      for (float eps : epsilons) {
+         // seed random for reproduceable results
+         srand(1234);
+         // srand( time(NULL) );
+         std::cerr << "Solving for eps = " << eps << " ...";
+         testSinglePointConvergence(test_point, scene, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, results);
+      }
+
+      writeResultsToCSV(results, "all_epsilon_convergence.csv");
    } else {
       std::cerr << "Failed to read interior points with temperature!" << std::endl;
    }
