@@ -423,7 +423,12 @@ int main( int argc, char** argv ) {
 
    // Testing a single point for convergence
    if (!interior_points_T.empty()) {
-      auto [test_point, T_true] = interior_points_T[194]; // test_point::(x,y), t_true::Int
+      int n_thetas = 20;
+      int n_radii = 20;
+      int flat_index = (n_thetas / 2) * n_radii + (n_radii / 2);
+      std::cout << "Calculated flat index for middle point: " << flat_index << std::endl;
+
+      auto [test_point, T_true] = interior_points_T[flat_index]; // test_point::(x,y), t_true::Int
 
       if (!insideDomain(test_point, scene)) {
          std::cerr << "WARNING: Selected test point is NOT inside the domain!\n";
