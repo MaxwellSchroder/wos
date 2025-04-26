@@ -120,6 +120,26 @@ float solve( Vec2D x0, vector<Segment> segments, function<float(Vec2D)> g, int n
    return sum/nWalks; // Monte Carlo estimate
 }
 
+// This function performs a single walk and returns the estimate
+float singleWalkEstimate(Vec2D x0, const std::vector<Segment>& segments, function<float(Vec2D)> g, float eps) {
+   const int maxSteps = 128;
+   Vec2D x = x0;
+   float R;
+   int steps = 0;
+   do {
+       R = numeric_limits<float>::max();
+       for (auto& s : segments) {
+           Vec2D p = closestPoint(x, s);
+           R = min(R, length(x - p));
+       }
+       float theta = random(0., 2. * M_PI);
+       x = x + Vec2D(R * cos(theta), R * sin(theta));
+       steps++;
+   } while (R > eps && steps < maxSteps);
+
+   return g(x);
+}
+
 // search through the tree, and query the closest temperature value given
 float treeBasedTemperatureQuery( Vec2D x ) {
    if (!global_tree) {
@@ -242,52 +262,6 @@ void printScene(const std::vector<Segment>& scene3) {
 
 }
 
-void runDenseGridEstimation(const std::vector<Segment>& scene, const std::string& outputFile, int resolution = 256) {
-   std::ofstream out(outputFile);
-   if (!out.is_open()) {
-       std::cerr << "Error: could not open output file: " << outputFile << std::endl;
-       return;
-   }
-
-   for (int j = 0; j < resolution; ++j) {
-       std::cerr << "row " << j << " of " << resolution << std::endl;
-       for (int i = 0; i < resolution; ++i) {
-           Vec2D x0((float)i / (float)resolution, (float)j / (float)resolution);
-           double u = 0.0;
-
-           if (insideDomain(x0, scene)) {
-               u = solve(x0, scene, treeBasedTemperatureQuery, 128, 0.01);
-           }
-
-           out << u;
-           if (i < resolution - 1) out << ",";
-       }
-       out << "\n";
-   }
-}
-
-void readInteriorPoints(const std::string& filename, std::vector<Vec2D>& points) {
-   std::ifstream file(filename);
-   if (!file.is_open()) {
-       std::cerr << "Error: could not open interior points file: " << filename << std::endl;
-       return;
-   }
-
-   std::string line;
-   while (std::getline(file, line)) {
-       std::stringstream ss(line);
-       std::string x_str, y_str, t_str;
-       if (std::getline(ss, x_str, ',') &&
-           std::getline(ss, y_str, ',') &&
-           std::getline(ss, t_str, ',')) {
-
-           float x = std::stof(x_str);
-           float y = std::stof(y_str);
-           points.emplace_back(x, y);
-       }
-   }
-}
-
 void readInteriorPointsT(const std::string& filename, std::vector<std::tuple<Vec2D, float>>& points) {
    std::ifstream file(filename);
    if (!file.is_open()) {
@@ -340,13 +314,14 @@ std::unordered_map<Vec2D, double> readBoundaryTemperatureMap(const std::string& 
    return boundaryMap;
 }
 
+// Outer function to cumulative grow estimates at a single point and record them to a CSV file
 void testSinglePointConvergence(
    Vec2D x0,
    const std::vector<Segment>& scene,
    float T_true,
    int minWalks,
    int maxWalks,
-   int nWalkIncrementer,
+   int walkCheckpointIncrement,
    float eps,
    const std::string& outputFile = "walk_vs_error.csv"
 ) {
@@ -356,15 +331,26 @@ void testSinglePointConvergence(
        return;
    }
 
-   for (int nWalks = minWalks; nWalks <= maxWalks; nWalks += nWalkIncrementer) {
-       float T_est = solve(x0, scene, treeBasedTemperatureQuery, nWalks, eps);
-       float l1_error = std::abs(T_est - T_true);
-       out << nWalks << "," << l1_error << "\n";
-       std::cerr << "[nWalks = " << nWalks << "] T_est = " << T_est 
-                 << ", T_true = " << T_true << ", L1 error = " << l1_error << "\n";
+   float running_sum = 0.0;
+   int walks_completed = 0;
+
+   for (int walk_counter = 1; walk_counter <= maxWalks; ++walk_counter) {
+       float walk_result = singleWalkEstimate(x0, scene, treeBasedTemperatureQuery, eps);
+       running_sum += walk_result;
+       walks_completed++;
+
+       // Output the error at checkpoint intervals
+       if (walk_counter >= minWalks && (walk_counter - minWalks) % walkCheckpointIncrement == 0) {
+           float T_estimate = running_sum / walks_completed;
+           float l1_error = std::abs(T_estimate - T_true);
+
+           out << walk_counter << "," << l1_error << "\n";
+           std::cerr << "[Walks = " << walk_counter << "] T_est = " << T_estimate
+                     << ", T_true = " << T_true << ", L1 error = " << l1_error << "\n";
+       }
    }
 
-   std::cerr << "Finished writing error data to " << outputFile << "\n";
+   std::cerr << "Finished writing cumulative error data to " << outputFile << "\n";
 }
 
 void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
@@ -418,7 +404,6 @@ int main( int argc, char** argv ) {
    // ofstream out( "out.csv" );
 
    // which technique will be used to solve the estimation
-   // runDenseGridEstimation(scene, "out.csv"); // DENSE GRID IS A BAD, PIXEL BASED APPROACH
    // runInteriorEstimation(interior_points, scene, boundaryMap, "estimated_solution.csv"); // INTERIOR IS FOR EACH INTERIOR POINT
 
    // Testing a single point for convergence
@@ -438,7 +423,7 @@ int main( int argc, char** argv ) {
 
       const float eps = 0.01;
       const int nWalkLowerLimit = 1;
-      const int nWalkUpperLimit = 2048;
+      const int nWalkUpperLimit = static_cast<int>(std::pow(2, 14));
       const int nWalkIncrement = 1;
 
       testSinglePointConvergence(test_point, scene, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, "error_plot_x0.csv");
