@@ -14,12 +14,33 @@
 #include <fstream>
 #include "nanoflann.hpp"
 
+
 using namespace std;
+namespace std {
+   template<>
+   struct hash<std::complex<float>> {
+       std::size_t operator()(const std::complex<float>& v) const {
+           auto h1 = std::hash<float>{}(v.real());
+           auto h2 = std::hash<float>{}(v.imag());
+           return h1 ^ (h2 << 1);  // Combine the hashes
+       }
+   };
+
+   template<>
+   struct equal_to<std::complex<float>> {
+       bool operator()(const std::complex<float>& lhs, const std::complex<float>& rhs) const {
+           return std::abs(lhs.real() - rhs.real()) < 1e-6 &&
+                  std::abs(lhs.imag() - rhs.imag()) < 1e-6;
+       }
+   };
+}
 
 // use std::complex to implement 2D vectors
 using Vec2D = complex<float>;
 float dot(Vec2D u, Vec2D v) { return real(conj(u)*v); }
 float length( Vec2D u ) { return sqrt( norm(u) ); }
+inline float getX(const Vec2D& v) { return std::real(v); }
+inline float getY(const Vec2D& v) { return std::imag(v); }
 
 // a segment is just a pair of points
 using Segment = array<Vec2D,2>;
@@ -74,9 +95,7 @@ float random( float rMin, float rMax ) {
 // solves a Laplace equation Δu = 0 at x0, where the boundary is given
 // by a collection of segments, and the boundary conditions are given
 // by a function g that can be evaluated at any point in space
-float solve( Vec2D x0, vector<Segment> segments, function<float(Vec2D)> g ) {
-   const float eps = 0.01; // stopping tolerance
-   const int nWalks = 128; // number of Monte Carlo samples 4096
+float solve( Vec2D x0, vector<Segment> segments, function<float(Vec2D)> g, int nWalks, float eps) {
    const int maxSteps = 128; // maximum walk length
 
    float sum = 0.;
@@ -180,11 +199,22 @@ void readCSVandAppendSegments(const string& filename, vector<Segment>& scene) {
 
    cout << "Number of points: " << points.size() << std::endl;
 
+   // Reverse the points to get a +ve winding order
+   std::reverse(points.begin(), points.end());
+
    // Now, create segments from consecutive points (A-B, B-C, etc.)
    for (size_t i = 1; i < points.size(); ++i) {
       Segment s = {{points[i - 1], points[i]}};
       scene.emplace_back(s);  // Create segments and append to scene
    }
+
+   // Always add a closing segment to ensure the domain is closed
+   if (!points.empty()) {
+      Segment closing = {{points.back(), points.front()}};
+      scene.emplace_back(closing);
+      std::cerr << "Scene closed by adding final segment.\n";
+   }
+   std::cerr << "Scene now has " << scene.size() << " segments.\n";
 
    file.close();
 }
@@ -226,7 +256,7 @@ void runDenseGridEstimation(const std::vector<Segment>& scene, const std::string
            double u = 0.0;
 
            if (insideDomain(x0, scene)) {
-               u = solve(x0, scene, treeBasedTemperatureQuery);
+               u = solve(x0, scene, treeBasedTemperatureQuery, 128, 0.01);
            }
 
            out << u;
@@ -236,17 +266,180 @@ void runDenseGridEstimation(const std::vector<Segment>& scene, const std::string
    }
 }
 
+void readInteriorPoints(const std::string& filename, std::vector<Vec2D>& points) {
+   std::ifstream file(filename);
+   if (!file.is_open()) {
+       std::cerr << "Error: could not open interior points file: " << filename << std::endl;
+       return;
+   }
+
+   std::string line;
+   while (std::getline(file, line)) {
+       std::stringstream ss(line);
+       std::string x_str, y_str, t_str;
+       if (std::getline(ss, x_str, ',') &&
+           std::getline(ss, y_str, ',') &&
+           std::getline(ss, t_str, ',')) {
+
+           float x = std::stof(x_str);
+           float y = std::stof(y_str);
+           points.emplace_back(x, y);
+       }
+   }
+}
+
+void readInteriorPointsT(const std::string& filename, std::vector<std::tuple<Vec2D, float>>& points) {
+   std::ifstream file(filename);
+   if (!file.is_open()) {
+       std::cerr << "Error: could not open interior points file: " << filename << std::endl;
+       return;
+   }
+
+   std::string line;
+   while (std::getline(file, line)) {
+       std::stringstream ss(line);
+       std::string x_str, y_str, t_str;
+       if (std::getline(ss, x_str, ',') &&
+           std::getline(ss, y_str, ',') &&
+           std::getline(ss, t_str, ',')) {
+
+           float x = std::stof(x_str);
+           float y = std::stof(y_str);
+           float t = std::stof(t_str);
+           points.emplace_back(Vec2D(x, y), t);
+       }
+   }
+}
+
+std::unordered_map<Vec2D, double> readBoundaryTemperatureMap(const std::string& filename) {
+   std::unordered_map<Vec2D, double> boundaryMap;
+
+   std::ifstream file(filename);
+   if (!file.is_open()) {
+       std::cerr << "Error: could not open boundary CSV: " << filename << std::endl;
+       return boundaryMap;
+   }
+
+   std::string line;
+   while (std::getline(file, line)) {
+       std::stringstream ss(line);
+       std::string x_str, y_str, t_str;
+       if (std::getline(ss, x_str, ',') &&
+           std::getline(ss, y_str, ',') &&
+           std::getline(ss, t_str, ',')) {
+
+           float x = std::stof(x_str);
+           float y = std::stof(y_str);
+           double t = std::stod(t_str);
+
+           Vec2D key(x, y);
+           boundaryMap[key] = t;
+       }
+   }
+
+   return boundaryMap;
+}
+
+void testSinglePointConvergence(
+   Vec2D x0,
+   const std::vector<Segment>& scene,
+   float T_true,
+   int minWalks,
+   int maxWalks,
+   int nWalkIncrementer,
+   float eps,
+   const std::string& outputFile = "walk_vs_error.csv"
+) {
+   std::ofstream out(outputFile);
+   if (!out.is_open()) {
+       std::cerr << "Error: Could not open output file: " << outputFile << std::endl;
+       return;
+   }
+
+   for (int nWalks = minWalks; nWalks <= maxWalks; nWalks += nWalkIncrementer) {
+       float T_est = solve(x0, scene, treeBasedTemperatureQuery, nWalks, eps);
+       float l1_error = std::abs(T_est - T_true);
+       out << nWalks << "," << l1_error << "\n";
+       std::cerr << "[nWalks = " << nWalks << "] T_est = " << T_est 
+                 << ", T_true = " << T_true << ", L1 error = " << l1_error << "\n";
+   }
+
+   std::cerr << "Finished writing error data to " << outputFile << "\n";
+}
+
+void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
+                           const std::vector<Segment>& scene,
+                           const std::unordered_map<Vec2D, double>& boundaryMap,
+                           const std::string& outputFile) {
+    using Entry = std::tuple<float, float, double>;
+    std::vector<Entry> results;
+
+    for (const auto& x0 : interior_points) {
+        std::ostringstream key;
+        key << std::fixed << std::setprecision(6) << getX(x0) << "," << getY(x0);
+
+        double u;
+        auto it = boundaryMap.find(x0);// check if point is already on the boundary
+         if (it != boundaryMap.end()) {
+            u = it->second;
+         } else {
+            u = solve(x0, scene, treeBasedTemperatureQuery, 128, 0.01);
+         }
+
+        results.emplace_back(getX(x0), getY(x0), u);
+    }
+
+    // Write results to CSV
+    std::ofstream out(outputFile);
+    if (!out.is_open()) {
+        std::cerr << "Error: could not open output file: " << outputFile << std::endl;
+        return;
+    }
+
+    for (const auto& [x, y, t] : results) {
+        out << x << "," << y << "," << t << "\n";
+    }
+}
+
 int main( int argc, char** argv ) {
+   // seed random for reproduceable results
+   srand(1234);
+   // srand( time(NULL) );
+
    // Read in the combined_coordinates, and generate the scene vector<Segment>
    vector<Segment> scene;
-
-   readCSVandAppendSegments("combined_coordinates.csv",scene);
+   readCSVandAppendSegments("boundary_representation.csv",scene);
    setupKDTree();
+   auto boundaryMap = readBoundaryTemperatureMap("boundary_representation.csv"); // Data structure that stores "x,y" -> temperature values for O(1) lookup
 
-   srand( time(NULL) );
-   ofstream out( "out.csv" );
+   std::vector<std::tuple<Vec2D, float>> interior_points_T;
+   readInteriorPointsT("interior_T_solution.csv", interior_points_T);
 
-   runDenseGridEstimation(scene, "out.csv");
+   // ofstream out( "out.csv" );
+
+   // which technique will be used to solve the estimation
+   // runDenseGridEstimation(scene, "out.csv"); // DENSE GRID IS A BAD, PIXEL BASED APPROACH
+   // runInteriorEstimation(interior_points, scene, boundaryMap, "estimated_solution.csv"); // INTERIOR IS FOR EACH INTERIOR POINT
+
+   // Testing a single point for convergence
+   if (!interior_points_T.empty()) {
+      auto [test_point, T_true] = interior_points_T[194]; // test_point::(x,y), t_true::Int
+
+      if (!insideDomain(test_point, scene)) {
+         std::cerr << "WARNING: Selected test point is NOT inside the domain!\n";
+      } else {
+         std::cerr << "Point selected is inside of the domain!\n";
+      }
+
+      const float eps = 0.01;
+      const int nWalkLowerLimit = 1;
+      const int nWalkUpperLimit = 2048;
+      const int nWalkIncrement = 1;
+
+      testSinglePointConvergence(test_point, scene, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, "error_plot_x0.csv");
+   } else {
+      std::cerr << "Failed to read interior points with temperature!" << std::endl;
+   }
 
    std::cerr << "Finished!" << std::endl;
    return 0;

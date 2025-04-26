@@ -64,29 +64,27 @@ class CylindricalShell:
         T += self._T_i
         return T
         
-        
 
-def test():
-    import numpy as np
-    import matplotlib.pyplot as plt
-    # INPUTS
-    flux = 20_000*(10*sp.sin(PHI) - 1)
-    T_i =  300.0   # K
-    R_i = 2.52e-02 # m, inner nose radius, 
-    R_o = 3.81e-02 # m, outer nose radius
-    k = 16.24 # W/(m.K), for stainless steel 321
-
+def setup_problem():
+    flux = 20_000 * (10 * sp.sin(PHI) - 1)
+    T_i = 300.0  # K
+    R_i = 2.52e-02  # m
+    R_o = 3.81e-02  # m
+    k = 16.24  # W/(m.K)
     cyl = CylindricalShell(R_i, R_o, T_i, k, flux)
+    return cyl, R_i, R_o
 
-    rs = np.linspace(R_i, R_o, 20, endpoint=True)
-    thetas = np.linspace(pi/2, pi, 20, endpoint=True)
+
+def compute_temperature_field(cyl, rs, thetas):
     Ts = []
     for theta in thetas:
         for r in rs:
             Ts.append(cyl.temperature(r, theta))
-    Ts = np.array(Ts, dtype=float)
-    Ts = Ts.reshape(len(thetas), len(rs))
+    Ts = np.array(Ts, dtype=float).reshape(len(thetas), len(rs))
+    return Ts
 
+
+def plot_polar_temperature(rs, thetas, Ts):
     r, theta = np.meshgrid(rs, thetas)
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
     cax = ax.contourf(theta, r, Ts, 30, cmap='hot')
@@ -94,25 +92,62 @@ def test():
     ax.set_xlim(pi/2, pi)
     cb = fig.colorbar(cax, location='bottom')
     cb.set_label("temperature, K")
-
     plt.savefig('cyl-T-dist.png', dpi=600)
 
-    # Transform R - Theta and Temperature values into an [x, y, Temperature]
+def convert_to_cartesian(rs, thetas, Ts):
     xyt_solution = []
     for i_theta, theta in enumerate(thetas):
         for i_r, r in enumerate(rs):
             x = r * cos(theta)
             y = r * sin(theta)
-            temp = Ts[i_theta][i_r]
-            xyt_solution.append([x, y, temp])
-    
-    # Write analytical solution to file
-    with open('analytical_solution.csv', 'w') as f:
-        for x, y, t in xyt_solution:
-            f.write(f"{x},{y},{t}\n")
-    
-    print("Analytical solution have been written to analytical_solution.csv. Format = [x,y,t \n x,y,t...]")
+            t = Ts[i_theta][i_r]
+            xyt_solution.append([x, y, t])
+    return xyt_solution
 
+def extract_boundary_cartesian(rs, thetas, Ts):
+    xyt_boundary = []
+
+    # 1. Bottom edge (theta = π/2, radius OUT to IN)
+    theta = thetas[0]
+    for r in reversed(rs):
+        x = r * cos(theta)
+        y = r * sin(theta)
+        t = Ts[0][np.where(rs == r)[0][0]]
+        xyt_boundary.append([x, y, t])
+
+    # 2. Inner arc (r = R_i, theta π/2 to π)
+    r_index = 0
+    for theta in thetas:
+        x = rs[r_index] * cos(theta)
+        y = rs[r_index] * sin(theta)
+        t = Ts[np.where(thetas == theta)[0][0]][r_index]
+        xyt_boundary.append([x, y, t])
+
+    # 3. Top edge (theta = π, radius IN to OUT)
+    theta = thetas[-1]
+    for r in rs:
+        x = r * cos(theta)
+        y = r * sin(theta)
+        t = Ts[-1][np.where(rs == r)[0][0]]
+        xyt_boundary.append([x, y, t])
+
+    # 4. Outer arc (r = R_o, theta π to π/2)
+    r_index = -1
+    for theta in reversed(thetas):
+        x = rs[r_index] * cos(theta)
+        y = rs[r_index] * sin(theta)
+        t = Ts[np.where(thetas == theta)[0][0]][r_index]
+        xyt_boundary.append([x, y, t])
+
+    return xyt_boundary
+
+def write_to_csv(data, filename='analytical_solution.csv'):
+    with open(filename, 'w') as f:
+        for x, y, t in data:
+            f.write(f"{x},{y},{t}\n")
+    print(f"Writing some calculated solution to {filename}. Format: x,y,t")
+
+def plot_cartesian_temperature(xyt_solution):
     x_vals = [x for x, y, t in xyt_solution]
     y_vals = [y for x, y, t in xyt_solution]
     t_vals = [t for x, y, t in xyt_solution]
@@ -125,6 +160,22 @@ def test():
     plt.xlabel('x [m]')
     plt.ylabel('y [m]')
     plt.show()
+
+def test():
+    cyl, R_i, R_o = setup_problem()
+    rs = np.linspace(R_i, R_o, 20)
+    thetas = np.linspace(pi/2, pi, 20)
+
+    Ts = compute_temperature_field(cyl, rs, thetas)
+    # plot_polar_temperature(rs, thetas, Ts)
+
+    interior_temperature_solution_xyt = convert_to_cartesian(rs, thetas, Ts)
+    boundary_coordinates = extract_boundary_cartesian(rs, thetas, Ts)
+
+    write_to_csv(interior_temperature_solution_xyt, filename="interior_T_solution.csv")
+    write_to_csv(boundary_coordinates, filename="boundary_representation.csv")
+
+    plot_cartesian_temperature(boundary_coordinates)
 
 if __name__ == '__main__':
     test()

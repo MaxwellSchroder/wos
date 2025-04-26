@@ -26,8 +26,6 @@ x_curve1 = 0.8 - radius * np.cos(theta1)
 y_curve1 = 0.2 + radius * np.sin(theta1)
 temperature_small_curve = np.full_like(theta1, fill_value=100) # Create a temperature field, set to 100K
 
-
-
 # Larger curve - has to be reversed as it needs to come down for the points to continue to be anti-clockwise winding order
 large_radius = 0.8 - 0.2
 x_curve2 = 0.8 - large_radius * np.cos(theta1)
