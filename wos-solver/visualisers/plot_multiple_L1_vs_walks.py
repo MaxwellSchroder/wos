@@ -28,10 +28,15 @@ for eps in unique_epsilons:
     )
 
 # Label axes
-plt.xlabel("Log Number of Walks (N)", fontsize=12)
-plt.ylabel("Log L1 Error", fontsize=12)
-plt.title("Log-Log Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
+plt.xlabel("Number of Walks (N)", fontsize=12)
+plt.ylabel("L1 Error", fontsize=12)
+plt.title("Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
 
+
+# # Log Label Axes
+# plt.xlabel("Log Number of Walks (N)", fontsize=12)
+# plt.ylabel("Log L1 Error", fontsize=12)
+# plt.title("Log-Log Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
 # # Optional: log-log plot
 # plt.xscale('log')
 # plt.yscale('log')
