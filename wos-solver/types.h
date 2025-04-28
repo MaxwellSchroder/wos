@@ -36,10 +36,14 @@ namespace std {
 // --- Common type aliases ---
 
 // use std::complex to implement 2D vectors
-using Vec2D = std::complex<float>;
+// using Vec2D = std::complex<float>;
+using Vec2D = std::complex<double>;
 
 // a segment is just a pair of points
 using Segment = std::array<Vec2D, 2>;
+
+// boundary geometry is represented by polylines
+using Polyline = std::vector<Vec2D>;
 
 // --- Point cloud structure for KDTree ---
 
