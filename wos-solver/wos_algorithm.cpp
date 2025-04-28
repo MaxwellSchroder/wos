@@ -79,7 +79,7 @@ float treeBasedTemperatureQuery( Vec2D x, const PointCloud& cloud ) {
 double signedAngle( Vec2D x, const vector<Segment>& P )
 {
     double Theta = 0.;
-    for( int i = 0; i < P.size(); i++ )
+    for( size_t i = 0; i < P.size(); i++ )
         // there is always two, so no need to run a secon dloop
         Theta += arg((P[i][1]-x)/(P[i][0]-x));
     return Theta;
