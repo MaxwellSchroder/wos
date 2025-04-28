@@ -2,3 +2,6 @@
 venv/
 *.csv
 *.png
+wos
+*vscode*
+*DS_Store

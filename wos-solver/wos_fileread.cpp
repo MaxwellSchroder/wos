@@ -14,7 +14,6 @@
 #include <fstream>
 #include "nanoflann.hpp"
 
-
 using namespace std;
 namespace std {
    template<>
@@ -101,30 +100,30 @@ float random( float rMin, float rMax ) {
 // solves a Laplace equation Δu = 0 at x0, where the boundary is given
 // by a collection of segments, and the boundary conditions are given
 // by a function g that can be evaluated at any point in space
-float solve( Vec2D x0, vector<Segment> segments, function<float(Vec2D)> g, int nWalks, float eps) {
-   const int maxSteps = 128; // maximum walk length
+// float solve( Vec2D x0, vector<Segment> segments, function<float(Vec2D)> g, int nWalks, float eps) {
+//    const int maxSteps = 128; // maximum walk length
 
-   float sum = 0.;
-   for( int i = 0; i < nWalks; i++ ) {
-      Vec2D x = x0;
-      float R;
-      int steps = 0;
-      do {
-         R = numeric_limits<float>::max();
-         for( auto s : segments ) {
-            Vec2D p = closestPoint( x, s );
-            R = min( R, length(x-p) );
-         }
-         float theta = random( 0., 2.*M_PI );
-         x = x + Vec2D( R*cos(theta), R*sin(theta) );
-         steps++;
-      }
-      while( R > eps && steps < maxSteps );
+//    float sum = 0.;
+//    for( int i = 0; i < nWalks; i++ ) {
+//       Vec2D x = x0;
+//       float R;
+//       int steps = 0;
+//       do {
+//          R = numeric_limits<float>::max();
+//          for( auto s : segments ) {
+//             Vec2D p = closestPoint( x, s );
+//             R = min( R, length(x-p) );
+//          }
+//          float theta = random( 0., 2.*M_PI );
+//          x = x + Vec2D( R*cos(theta), R*sin(theta) );
+//          steps++;
+//       }
+//       while( R > eps && steps < maxSteps );
 
-      sum += g(x);
-   }
-   return sum/nWalks; // Monte Carlo estimate
-}
+//       sum += g(x);
+//    }
+//    return sum/nWalks; // Monte Carlo estimate
+// }
 
 // This function performs a single walk and returns the estimate
 float singleWalkEstimate(Vec2D x0, const std::vector<Segment>& segments, function<float(Vec2D)> g, float eps) {
@@ -257,15 +256,15 @@ void setupKDTree() {
    global_tree->buildIndex();
 }
 
-void printScene(const std::vector<Segment>& scene3) {
-   cerr << "Printing scene" << endl;
-   for (const auto& segment : scene3) {
-      cerr << "getting into loop" << endl;
-      std::cerr << "Segment from (" << real(segment[0]) << ", " << imag(segment[0]) << ") "
-               << "to (" << real(segment[1]) << ", " << imag(segment[1]) << ")\n";
-   }
-   cerr << "Done!" << endl;
-}
+// void printScene(const std::vector<Segment>& scene3) {
+//    cerr << "Printing scene" << endl;
+//    for (const auto& segment : scene3) {
+//       cerr << "getting into loop" << endl;
+//       std::cerr << "Segment from (" << real(segment[0]) << ", " << imag(segment[0]) << ") "
+//                << "to (" << real(segment[1]) << ", " << imag(segment[1]) << ")\n";
+//    }
+//    cerr << "Done!" << endl;
+// }
 
 // This function takes out ExperimentResults struct, and then outputs to a known format in CSV
 void writeResultsToCSV(const std::vector<ExperimentResult>& results, const std::string& filename) {
@@ -304,34 +303,34 @@ void readInteriorPointsT(const std::string& filename, std::vector<std::tuple<Vec
    }
 }
 
-std::unordered_map<Vec2D, double> readBoundaryTemperatureMap(const std::string& filename) {
-   std::unordered_map<Vec2D, double> boundaryMap;
+// std::unordered_map<Vec2D, double> readBoundaryTemperatureMap(const std::string& filename) {
+//    std::unordered_map<Vec2D, double> boundaryMap;
 
-   std::ifstream file(filename);
-   if (!file.is_open()) {
-       std::cerr << "Error: could not open boundary CSV: " << filename << std::endl;
-       return boundaryMap;
-   }
+//    std::ifstream file(filename);
+//    if (!file.is_open()) {
+//        std::cerr << "Error: could not open boundary CSV: " << filename << std::endl;
+//        return boundaryMap;
+//    }
 
-   std::string line;
-   while (std::getline(file, line)) {
-       std::stringstream ss(line);
-       std::string x_str, y_str, t_str;
-       if (std::getline(ss, x_str, ',') &&
-           std::getline(ss, y_str, ',') &&
-           std::getline(ss, t_str, ',')) {
+//    std::string line;
+//    while (std::getline(file, line)) {
+//        std::stringstream ss(line);
+//        std::string x_str, y_str, t_str;
+//        if (std::getline(ss, x_str, ',') &&
+//            std::getline(ss, y_str, ',') &&
+//            std::getline(ss, t_str, ',')) {
 
-           float x = std::stof(x_str);
-           float y = std::stof(y_str);
-           double t = std::stod(t_str);
+//            float x = std::stof(x_str);
+//            float y = std::stof(y_str);
+//            double t = std::stod(t_str);
 
-           Vec2D key(x, y);
-           boundaryMap[key] = t;
-       }
-   }
+//            Vec2D key(x, y);
+//            boundaryMap[key] = t;
+//        }
+//    }
 
-   return boundaryMap;
-}
+//    return boundaryMap;
+// }
 
 // Outer function to cumulative grow estimates at a single point and record them to a CSV file
 void testSinglePointConvergence(
@@ -366,52 +365,52 @@ void testSinglePointConvergence(
    std::cerr << "Finished writing cumulative Walks and L1 Error data to results for Eps = " << eps << "\n";
 }
 
-void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
-                           const std::vector<Segment>& scene,
-                           const std::unordered_map<Vec2D, double>& boundaryMap,
-                           const std::string& outputFile) {
-    using Entry = std::tuple<float, float, double>;
-    std::vector<Entry> results;
+// void runInteriorEstimation(const std::vector<Vec2D>& interior_points,
+//                            const std::vector<Segment>& scene,
+//                            const std::unordered_map<Vec2D, double>& boundaryMap,
+//                            const std::string& outputFile) {
+//     using Entry = std::tuple<float, float, double>;
+//     std::vector<Entry> results;
 
-    for (const auto& x0 : interior_points) {
-        std::ostringstream key;
-        key << std::fixed << std::setprecision(6) << getX(x0) << "," << getY(x0);
+//     for (const auto& x0 : interior_points) {
+//         std::ostringstream key;
+//         key << std::fixed << std::setprecision(6) << getX(x0) << "," << getY(x0);
 
-        double u;
-        auto it = boundaryMap.find(x0);// check if point is already on the boundary
-         if (it != boundaryMap.end()) {
-            u = it->second;
-         } else {
-            u = solve(x0, scene, treeBasedTemperatureQuery, 128, 0.01);
-         }
+//         double u;
+//         auto it = boundaryMap.find(x0);// check if point is already on the boundary
+//          if (it != boundaryMap.end()) {
+//             u = it->second;
+//          } else {
+//             u = solve(x0, scene, treeBasedTemperatureQuery, 128, 0.01);
+//          }
 
-        results.emplace_back(getX(x0), getY(x0), u);
-    }
+//         results.emplace_back(getX(x0), getY(x0), u);
+//     }
 
-    // Write results to CSV
-    std::ofstream out(outputFile);
-    if (!out.is_open()) {
-        std::cerr << "Error: could not open output file: " << outputFile << std::endl;
-        return;
-    }
+//     // Write results to CSV
+//     std::ofstream out(outputFile);
+//     if (!out.is_open()) {
+//         std::cerr << "Error: could not open output file: " << outputFile << std::endl;
+//         return;
+//     }
 
-    for (const auto& [x, y, t] : results) {
-        out << x << "," << y << "," << t << "\n";
-    }
-}
+//     for (const auto& [x, y, t] : results) {
+//         out << x << "," << y << "," << t << "\n";
+//     }
+// }
 
 int main( int argc, char** argv ) {
    // Read in the combined_coordinates, and generate the scene vector<Segment>
    vector<Segment> scene;
    readCSVandAppendSegments("boundary_representation.csv",scene);
    setupKDTree();
-   auto boundaryMap = readBoundaryTemperatureMap("boundary_representation.csv"); // Data structure that stores "x,y" -> temperature values for O(1) lookup
-
+   
    std::vector<std::tuple<Vec2D, float>> interior_points_T;
    readInteriorPointsT("interior_T_solution.csv", interior_points_T);
-
+   
    // ofstream out( "out.csv" );
-
+   
+   // auto boundaryMap = readBoundaryTemperatureMap("boundary_representation.csv"); // Data structure that stores "x,y" -> temperature values for O(1) lookup
    // which technique will be used to solve the estimation
    // runInteriorEstimation(interior_points, scene, boundaryMap, "estimated_solution.csv"); // INTERIOR IS FOR EACH INTERIOR POINT
 
