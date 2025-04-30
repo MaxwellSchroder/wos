@@ -3,7 +3,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -Wunused -Wunreachable-code -Werror
 
 # Source files
-SRCS = main.cpp wos_algorithm.cpp experiment_runner.cpp csv_io.cpp
+SRCS = main.cpp wost_algorithm.cpp experiment_runner.cpp csv_io.cpp
 
 # Object files (optional for larger projects, here we stay simple)
 OBJS = $(SRCS:.cpp=.o)

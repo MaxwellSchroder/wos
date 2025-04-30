@@ -57,11 +57,18 @@ double rayIntersection( Vec2D x, Vec2D v, Vec2D a, Vec2D b ) {
 }
 
 // returns distance from x to closest point on the given polylines P
-double distancePolylines( Vec2D x, const std::vector<Polyline>& P ) {
+double distancePolylines( Vec2D x, const std::vector<Polyline>& P, Vec2D& hit_p0, Vec2D& hit_p1) {
     double d = infinity; // minimum distance so far
-    for( int i = 0; i < P.size(); i++ ) { // iterate over polylines
-        for( int j = 0; j < P[i].size()-1; j++ ) { // iterate over segments
+    for( size_t i = 0; i < P.size(); i++ ) { // iterate over polylines
+        for( size_t j = 0; j < P[i].size()-1; j++ ) { // iterate over segments
             Vec2D y = closestPoint( x, P[i][j], P[i][j+1] ); // distance to segment
+
+            // Add logic to ensure p0 is getting overwritten for correct segments
+            if (d > length(x-y)) {
+                hit_p0 = P[i][j];    // <-- Capture segment endpoints
+                hit_p1 = P[i][j+1];
+            }
+
             d = min( d, length(x-y) ); // update minimum distance
         }
     }
@@ -71,8 +78,8 @@ double distancePolylines( Vec2D x, const std::vector<Polyline>& P ) {
 // returns distance from x to closest silhouette point on the given polylines P
 double silhouetteDistancePolylines( Vec2D x, const std::vector<Polyline>& P ){
     double d = infinity; // minimum distance so far
-    for( int i = 0; i < P.size(); i++ ) { // iterate over polylines
-        for( int j = 1; j < P[i].size()-1; j++ ) { // iterate over segment pairs
+    for( size_t i = 0; i < P.size(); i++ ) { // iterate over polylines
+        for( size_t j = 1; j < P[i].size()-1; j++ ) { // iterate over segment pairs
             if( isSilhouette( x, P[i][j-1], P[i][j], P[i][j+1] )) {
                 d = min( d, length(x-P[i][j]) ); // update minimum distance
             }
@@ -111,21 +118,23 @@ double singleWalkStarEstimate(
     Vec2D x0,
     const vector<Polyline>& boundaryDirichlet,
     const vector<Polyline>& boundaryNeumann,
-    std::function<double(Vec2D)> g,
-    float eps
+    std::function<double(Vec2D x, Vec2D p0, Vec2D p1)> g,
+    double eps
 ) {
     const double rMin = 0.0001;
-    const int maxSteps = 128; // typical for single walks
+    const int maxSteps = 65536; // typical for single walks
 
     Vec2D x = x0; // start walk at the evaluation point
     Vec2D n{ 0.0, 0.0 }; // assume x0 is an interior point, and has no normal
     bool onBoundary = false; // flag whether x is on the interior or boundary
 
+    Vec2D hit_p0, hit_p1; // to catch the segment in which the polylines intersected
+
     int steps = 0;
     double r, dDirichlet, dSilhouette; // radii used to define star shaped region
     do { // loop until the walk hits the Dirichlet boundary
         // Compute star radius
-        dDirichlet = distancePolylines(x, boundaryDirichlet);
+        dDirichlet = distancePolylines(x, boundaryDirichlet, hit_p0, hit_p1);
         dSilhouette = silhouetteDistancePolylines(x, boundaryNeumann);
         r = max(rMin, min(dDirichlet, dSilhouette));
 
@@ -148,7 +157,7 @@ double singleWalkStarEstimate(
     }
 
     // Evaluate boundary function at final point
-    return g(x);
+    return g(x, hit_p0, hit_p1);
 }
 
 // --- Domain Checking ---
@@ -158,8 +167,8 @@ double singleWalkStarEstimate(
 double signedAngle( Vec2D x, const vector<Polyline>& P ) 
 {
     double Theta = 0.;
-    for( int i = 0; i < P.size(); i++ )
-        for( int j = 0; j < P[i].size()-1; j++ )
+    for( size_t i = 0; i < P.size(); i++ )
+        for( size_t j = 0; j < P[i].size()-1; j++ )
             Theta += arg( (P[i][j+1]-x)/(P[i][j]-x) );
     return Theta;
 }

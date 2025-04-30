@@ -16,17 +16,17 @@
 
 namespace std {
     template<>
-    struct hash<std::complex<float>> {
-        std::size_t operator()(const std::complex<float>& v) const {
-            auto h1 = std::hash<float>{}(v.real());
-            auto h2 = std::hash<float>{}(v.imag());
+    struct hash<std::complex<double>> {
+        std::size_t operator()(const std::complex<double>& v) const {
+            auto h1 = std::hash<double>{}(v.real());
+            auto h2 = std::hash<double>{}(v.imag());
             return h1 ^ (h2 << 1);  // Combine the hashes
         }
     };
  
     template<>
-    struct equal_to<std::complex<float>> {
-        bool operator()(const std::complex<float>& lhs, const std::complex<float>& rhs) const {
+    struct equal_to<std::complex<double>> {
+        bool operator()(const std::complex<double>& lhs, const std::complex<double>& rhs) const {
             return std::abs(lhs.real() - rhs.real()) < 1e-6 &&
                    std::abs(lhs.imag() - rhs.imag()) < 1e-6;
         }
@@ -49,7 +49,7 @@ using Polyline = std::vector<Vec2D>;
 
 struct PointCloud {
     struct Point {
-       float x, y, temperature;
+       double x, y, temperature;
     };
  
     std::vector<Point> pts;
@@ -74,7 +74,7 @@ typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<float, 
 // --- ExperimentResult struct ---
 
 struct ExperimentResult {
-    float epsilon;
+    double epsilon;
     int nWalks;
-    float l1_error;
+    double l1_error;
 };
