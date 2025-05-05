@@ -28,9 +28,9 @@ for eps in unique_epsilons:
     )
 
 # Label axes
-plt.xlabel("Number of Walks (N)", fontsize=12)
-plt.ylabel("L1 Error", fontsize=12)
-plt.title("Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
+# plt.xlabel("Number of Walks (N)", fontsize=12)
+# plt.ylabel("L1 Error", fontsize=12)
+# plt.title("Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
 
 
 # # Log Label Axes
@@ -53,4 +53,5 @@ plt.legend(title="Epsilon Values", fontsize=10, title_fontsize=11)
 
 plt.tight_layout()
 plt.savefig("l1_convergence_multiple_epsilons.png", dpi=300)
+# plt.savefig("Log_Log_l1_convergence_multiple_epsilons.png", dpi=300)
 plt.show()

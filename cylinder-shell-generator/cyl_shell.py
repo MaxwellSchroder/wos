@@ -105,7 +105,9 @@ def convert_to_cartesian(rs, thetas, Ts):
     return xyt_solution
 
 def extract_boundary_cartesian(rs, thetas, Ts):
-    xyt_boundary = []
+    type_xyt_boundary = []
+    DirichletType = "D"
+    NeumannType = "N"
 
     # 1. Bottom edge (theta = π/2, radius OUT to IN)
     theta = thetas[0]
@@ -113,7 +115,7 @@ def extract_boundary_cartesian(rs, thetas, Ts):
         x = r * cos(theta)
         y = r * sin(theta)
         t = Ts[0][np.where(rs == r)[0][0]]
-        xyt_boundary.append([x, y, t])
+        type_xyt_boundary.append([NeumannType, x, y, t])
 
     # 2. Inner arc (r = R_i, theta π/2 to π)
     r_index = 0
@@ -121,7 +123,7 @@ def extract_boundary_cartesian(rs, thetas, Ts):
         x = rs[r_index] * cos(theta)
         y = rs[r_index] * sin(theta)
         t = Ts[np.where(thetas == theta)[0][0]][r_index]
-        xyt_boundary.append([x, y, t])
+        type_xyt_boundary.append([DirichletType, x, y, t])
 
     # 3. Top edge (theta = π, radius IN to OUT)
     theta = thetas[-1]
@@ -129,7 +131,7 @@ def extract_boundary_cartesian(rs, thetas, Ts):
         x = r * cos(theta)
         y = r * sin(theta)
         t = Ts[-1][np.where(rs == r)[0][0]]
-        xyt_boundary.append([x, y, t])
+        type_xyt_boundary.append([NeumannType, x, y, t])
 
     # 4. Outer arc (r = R_o, theta π to π/2)
     r_index = -1
@@ -137,20 +139,26 @@ def extract_boundary_cartesian(rs, thetas, Ts):
         x = rs[r_index] * cos(theta)
         y = rs[r_index] * sin(theta)
         t = Ts[np.where(thetas == theta)[0][0]][r_index]
-        xyt_boundary.append([x, y, t])
+        type_xyt_boundary.append([DirichletType, x, y, t])
 
-    return xyt_boundary
+    return type_xyt_boundary
 
-def write_to_csv(data, filename='analytical_solution.csv'):
-    with open(filename, 'w') as f:
-        for x, y, t in data:
-            f.write(f"{x},{y},{t}\n")
-    print(f"Writing some calculated solution to {filename}. Format: x,y,t")
+def write_to_csv(data, filename='analytical_solution.csv', type=False):
+    if type:
+        with open(filename, 'w') as f:
+            for type, x, y, t in data:
+                f.write(f"{type},{x},{y},{t}\n")
+        print(f"Writing some calculated solution to {filename}. Format: type,x,y,t")
+    else:
+        with open(filename, 'w') as f:
+            for x, y, t in data:
+                f.write(f"{x},{y},{t}\n")
+        print(f"Writing some calculated solution to {filename}. Format: x,y,t")
 
 def plot_cartesian_temperature(xyt_solution):
-    x_vals = [x for x, y, t in xyt_solution]
-    y_vals = [y for x, y, t in xyt_solution]
-    t_vals = [t for x, y, t in xyt_solution]
+    x_vals = [x for type, x, y, t in xyt_solution]
+    y_vals = [y for type, x, y, t in xyt_solution]
+    t_vals = [t for type, x, y, t in xyt_solution]
 
     plt.figure()
     plt.scatter(x_vals, y_vals, c=t_vals, cmap='hot')
@@ -173,7 +181,7 @@ def test():
     boundary_coordinates = extract_boundary_cartesian(rs, thetas, Ts)
 
     write_to_csv(interior_temperature_solution_xyt, filename="interior_T_solution.csv")
-    write_to_csv(boundary_coordinates, filename="boundary_representation.csv")
+    write_to_csv(boundary_coordinates, filename="boundary_representation.csv", type=True)
 
     plot_cartesian_temperature(boundary_coordinates)
 
