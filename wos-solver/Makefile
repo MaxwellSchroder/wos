@@ -1,6 +1,7 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -Wunused -Wunreachable-code -Werror
+CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -Wunused -Wunreachable-code -Werror 
+CXXFLAGS += -DENABLE_INSTRUMENTATION
 
 # Source files
 SRCS = main.cpp wost_algorithm.cpp csv_io.cpp

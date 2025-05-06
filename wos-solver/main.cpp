@@ -22,8 +22,9 @@ void testSinglePointConvergenceWoSt(
 ) {
     double running_sum = 0.0;
     int walks_completed = 0;
- 
+    
     auto start = std::chrono::high_resolution_clock::now();
+
     for (int walk_counter = 1; walk_counter <= maxWalks; ++walk_counter) {
         double walk_result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
         running_sum += walk_result;
@@ -61,8 +62,6 @@ auto g (Vec2D x, Vec2D p0, Vec2D p1) -> double {
                   << "p1 = " << p1 << ", "
                   << "x = (" << real(x) << "," << imag(x) << "), " << "Sum of 2 Segment Temps = " << ((temp_p0 + temp_p1) / 2) << "\n";
 
-        // For now just simple average (or later interpolation)
-
         // Compute interpolation factor t along the segment [p0, p1]
         double segment_length = std::abs(p1 - p0);
         if (segment_length < 1e-12) {
@@ -84,6 +83,27 @@ auto g (Vec2D x, Vec2D p0, Vec2D p1) -> double {
         return 0.0; // Safe fallback
     }
 };
+
+double estimateInstrumentationOverheadPerWalk(int nMaxWalk = 10000) {
+    using namespace std::chrono;
+
+    std::vector<ExperimentResult> dummy_results;
+    double dummy_eps = -1;
+    int dummy_n = -1;
+    double dummy_error = -1;
+
+    auto start = high_resolution_clock::now();
+    for (int i = 0; i < nMaxWalk; ++i) {
+        auto t0 = high_resolution_clock::now();
+        auto t1 = high_resolution_clock::now();
+        duration<double> elapsed = t1 - t0;
+        dummy_results.push_back({dummy_eps, dummy_n, dummy_error, elapsed.count()});
+    }
+    auto end = high_resolution_clock::now();
+    duration<double> total = end - start;
+
+    return total.count() / nMaxWalk;
+}
 
 void print_boundaries() {
     // for simplicity, in this code we assume that the Dirichlet and Neumann
@@ -143,7 +163,7 @@ int main() {
         std::vector<double> epsilons = {0.01, 0.005, 0.00125, 0.0005, 0.00025, 0.000125};
         // std::vector<double> epsilons = {0.005};
         const int nWalkLowerLimit = 1;
-        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 15));
+        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 13));
         const int nWalkIncrement = 1;
         std::vector<ExperimentResult> results;
 
@@ -154,6 +174,19 @@ int main() {
             std::cerr << "Solving for eps = " << eps << " ...\n";
 
             testSinglePointConvergenceWoSt(test_point, boundaryDirichlet, boundaryNeumann, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, results, g);
+
+            #ifdef ENABLE_INSTRUMENTATION
+            double instrumentation_overhead = estimateInstrumentationOverheadPerWalk(nWalkUpperLimit);
+
+             // Adjust cumulative_time for all result entries with current eps
+            for (auto& r : results) {
+                if (r.epsilon == eps) { // match current epsilon
+                    double adjusted_time = r.cumulative_time - instrumentation_overhead*r.nWalks;
+                    r.cumulative_time = std::max(0.0, adjusted_time); // clamp to non-negative
+                }
+            }
+
+            #endif
         }
 
         writeResultsToCSV(results, "all_epsilon_convergence.csv");
