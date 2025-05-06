@@ -77,4 +77,5 @@ struct ExperimentResult {
     double epsilon;
     int nWalks;
     double l1_error;
+    double cumulative_time;
 };

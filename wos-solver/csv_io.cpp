@@ -132,9 +132,9 @@ void writeResultsToCSV(const std::vector<ExperimentResult>& results, const std::
         std::cerr << "Error: Could not open output file " << filename << "\n";
         return;
     }
-    out << "epsilon,nWalks,l1_error\n"; // header
+    out << "epsilon,nWalks,l1_error,cumulative_time\n"; // header
     for (const auto& res : results) {
-        out << res.epsilon << "," << res.nWalks << "," << res.l1_error << "\n";
+        out << res.epsilon << "," << res.nWalks << "," << res.l1_error << "," << res.cumulative_time << "\n";
     }
     out.close();
 }
