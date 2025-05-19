@@ -24,7 +24,7 @@ Vec2D intersectPolylines(Vec2D x, Vec2D v, double r, const std::vector<Polyline>
 
 // --- Walk on Stars Solver ---
 
-double singleWalkStarEstimate(
+std::optional<double>  singleWalkStarEstimate(
     Vec2D x0,
     const std::vector<Polyline>& boundaryDirichlet,
     const std::vector<Polyline>& boundaryNeumann,

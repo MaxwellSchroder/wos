@@ -8,6 +8,7 @@
 #include <random>
 #include <vector>
 #include <fstream>
+#include <optional>
 
 using namespace std;
 
@@ -114,7 +115,7 @@ Vec2D intersectPolylines(Vec2D x, Vec2D v, double r,
 }
 
 // --- Walk on Stars Solver ---
-double singleWalkStarEstimate(
+std::optional<double> singleWalkStarEstimate(
     Vec2D x0,
     const vector<Polyline>& boundaryDirichlet,
     const vector<Polyline>& boundaryNeumann,
@@ -152,11 +153,11 @@ double singleWalkStarEstimate(
     }
     while (dDirichlet > eps && steps < maxSteps);
 
-    if (steps >= maxSteps) {
-        std::cerr << "Warning: singleWalkStarEstimate hit max steps\n";
+    if (steps >= maxSteps || std::isnan(x.real()) || std::isnan(x.imag())) {
+        std::cerr << "[Walk Failed] Reached max steps or invalid point.\n";
+        return std::nullopt;
     }
 
-    // Evaluate boundary function at final point
     return g(x, hit_p0, hit_p1);
 }
 

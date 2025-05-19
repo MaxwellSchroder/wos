@@ -87,8 +87,6 @@ def show_time_vs_epsilon():
     plt.tight_layout()
     plt.show()
 
-# show_time_vs_epsilon()
-
 def show_L1_error_vs_time():
     fig, ax1 = plt.subplots()
     
@@ -121,58 +119,89 @@ def show_L1_error_vs_time():
     plt.tight_layout()
     plt.show()
     
-show_L1_error_vs_time()
+def show_L1_error_vs_N_Walks():
+    fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(8, 10), sharex=True)
+    
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+        
+        x = n_walks[mask]
+        y = l1_errors[mask]
+        
+        # Plot on both subplots
+        ax1.plot(x, y, marker='o', linestyle='-', linewidth=1, markersize=2, label=f"ε = {eps:.3g}")
+        ax2.plot(x, y, marker='o', linestyle='-', linewidth=1, markersize=2, label=f"ε = {eps:.3g}")
+    
+    ## Log-Log Plot (Top)
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_xlabel("Number of Walks (N)")
+    ax1.tick_params(labelbottom=True)
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_title("Log-Log Convergence of WoSt at a Single Point")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+    
+    # Reference convergence line (O(1/√N))
+    ref_x = np.array([min(n_walks), max(n_walks)])
+    ref_y = l1_errors[0] * (ref_x / n_walks[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
 
+    ## Linear Y-Axis Plot (Bottom)
+    ax2.set_xlabel("Number of Walks (N)")
+    ax2.set_ylabel("L1 Error")
+    ax2.set_xscale('log')
+    ax2.set_yscale('linear')
+    ax2.set_ylim([-1,2])
+    ax2.set_title("Log-X Linear-Y Plot of Convergence (Same Data)")
+    ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-# for eps in unique_epsilons:
-#     mask = epsilons == eps
-#     plt.plot(
-#         n_walks[mask],
-#         l1_errors[mask],
-#         marker='o',
-#         linestyle='-',
-#         linewidth=1,
-#         markersize=2,
-#         label=f"ε = {eps:.3g}"
-#     )
+    ## Display
+    ax1.legend(title="Epsilon Values", fontsize=9, title_fontsize=10)
+    # plt.title("Log-Log Plot of Convergence of Walk on Spheres\n at a Single Point for Different ε Values", fontsize=14)
+    # plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+    
+    ## SAVE
+    # plt.savefig("l1_convergence_multiple_epsilons.png", dpi=300)
+    # plt.savefig("Log_Log_l1_convergence_multiple_epsilons.png", dpi=300)
 
-# for eps in unique_epsilons:
-#     mask = epsilons == eps
-#     plt.plot(
-#         n_walks[mask],
-#         cumulative_time[mask],
-#         marker='o',
-#         linestyle='-',
-#         linewidth=1,
-#         markersize=2,
-#         label=f"ε = {eps:.3g}"
-#     )
+def show_relative_error_vs_N_Walks():
+    fig, (ax1) = plt.subplots(nrows=2, figsize=(8, 10), sharex=True)
+    
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+        
+        x = n_walks[mask]
+        l1_errors_ys = l1_errors[mask]
+        y = 360.5597826843833
+        
+        
+        # Plot on both subplots
+        ax1.plot(x, y, marker='o', linestyle='-', linewidth=1, markersize=2, label=f"ε = {eps:.3g}")
+    
+    ## Log-Log Plot (Top)
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_xlabel("Number of Walks (N)")
+    ax1.tick_params(labelbottom=True)
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_title("Log-Log Convergence of WoSt at a Single Point")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+    
+    # Reference convergence line (O(1/√N))
+    ref_x = np.array([min(n_walks), max(n_walks)])
+    ref_y = l1_errors[0] * (ref_x / n_walks[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
 
-# Label axes
-# plt.xlabel("Number of Walks (N)", fontsize=12)
-# plt.ylabel("Time (seconds)", fontsize=12)
-# plt.title("Plot of Execution Time vs Number of Walks at a Single Point\nfor Different ε Values", fontsize=14)
+    ## Display
+    ax1.legend(title="Epsilon Values", fontsize=9, title_fontsize=10)
+    # plt.title("Log-Log Plot of Convergence of Walk on Spheres\n at a Single Point for Different ε Values", fontsize=14)
+    # plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-
-# # Log Label Axes
-# plt.xlabel("Log Number of Walks (N)", fontsize=12)
-# plt.ylabel("Log L1 Error", fontsize=12)
-# plt.title("Log-Log Plot of Convergence of Walk on Spheres at a Single Point\nfor Different ε Values", fontsize=14)
-# # Optional: log-log plot
-# plt.xscale('log')
-# plt.yscale('log')
-# # Reference convergence line (O(1/√N))
-# ref_x = np.array([min(n_walks), max(n_walks)])
-# ref_y = l1_errors[0] * (ref_x / n_walks[0])**(-0.5)
-# plt.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
-
-# plt.ylim([0, 20])  # adjust if needed
-# plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-
-# Add legend
-# plt.legend(title="Epsilon Values", fontsize=10, title_fontsize=11)
-
-# plt.tight_layout()
-# plt.savefig("l1_convergence_multiple_epsilons.png", dpi=300)
-# plt.savefig("Log_Log_l1_convergence_multiple_epsilons.png", dpi=300)
-# plt.show()
+if __name__ == "__main__":
+    # show_L1_error_vs_time()
+    # show_time_vs_epsilon()
+    show_L1_error_vs_N_Walks()

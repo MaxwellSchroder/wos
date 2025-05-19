@@ -22,18 +22,38 @@ void testSinglePointConvergenceWoSt(
 ) {
     double running_sum = 0.0;
     int walks_completed = 0;
+
+    int failed_walk_count = 0;
     
     auto start = std::chrono::high_resolution_clock::now();
 
     for (int walk_counter = 1; walk_counter <= maxWalks; ++walk_counter) {
-        double walk_result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
+        double walk_result;
+
+        while (true) {
+            auto result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
+            if (result.has_value()) {
+                walk_result = result.value();
+                break;
+            } else {
+                failed_walk_count++;
+                std::cerr << "Retrying walk... (total failures so far: " << failed_walk_count << ")\n";
+            }
+        }
+
         running_sum += walk_result;
         walks_completed++;
- 
+
         // Output the error at checkpoint intervals
         if (walk_counter >= minWalks && (walk_counter - minWalks) % walkCheckpointIncrement == 0) {
+
             double T_estimate = running_sum / walks_completed;
+
             double l1_error = std::abs(T_estimate - T_true);
+
+            if (std::isnan(l1_error) || std::isinf(l1_error)) {
+                l1_error = 0.0;  // treat as no error if both are extremely close
+            }
 
             // End timer and record time it took for specific walk
             auto end = std::chrono::high_resolution_clock::now();
@@ -43,7 +63,7 @@ void testSinglePointConvergenceWoSt(
         }
     }
     
-    std::cerr << "WoST: Finished writing cumulative Walks and L1 Error data to results for Eps = " << eps << "\n";
+    std::cerr << "WoST: Finished for Eps = " << eps << " | Failed walk count (number of exceeded maxWalks): " << failed_walk_count << " | Valid walks: " << walks_completed << "\n";
 }
 
 vector<Polyline> boundaryDirichlet;
@@ -54,13 +74,24 @@ std::unordered_map<Vec2D, double> boundaryTemperatureMap;
 // --- FUNCTION G to use to find the temperature for now ---
 auto g (Vec2D x, Vec2D p0, Vec2D p1) -> double {
     try {
+        if (std::isnan(real(p0)) || std::isnan(imag(p0)) ||
+            std::isnan(real(p1)) || std::isnan(imag(p1)) ||
+            std::isnan(real(x)) || std::isnan(imag(x))) {
+            std::cerr << "[g(x)] ERROR: NaN found in input coordinates.\n";
+            std::cerr << "x = (" << real(x) << "," << imag(x) << "), "
+                      << "p0 = (" << real(p0) << "," << imag(p0) << "), "
+                      << "p1 = (" << real(p1) << "," << imag(p1) << ")\n";
+            return 0.0;
+        }
+
         double temp_p0 = boundaryTemperatureMap.at(p0);
         double temp_p1 = boundaryTemperatureMap.at(p1);
 
-        std::cout << "[g(x)]: "
-                  << "p0 = " << p0 << ", "
-                  << "p1 = " << p1 << ", "
-                  << "x = (" << real(x) << "," << imag(x) << "), " << "Sum of 2 Segment Temps = " << ((temp_p0 + temp_p1) / 2) << "\n";
+        if (std::isnan(temp_p0) || std::isnan(temp_p1)) {
+            std::cerr << "[g(x)] ERROR: Temp lookup returned NaN.\n";
+            std::cerr << "temp_p0 = " << temp_p0 << ", temp_p1 = " << temp_p1 << "\n";
+            return 0.0;
+        }
 
         // Compute interpolation factor t along the segment [p0, p1]
         double segment_length = std::abs(p1 - p0);
@@ -72,7 +103,13 @@ auto g (Vec2D x, Vec2D p0, Vec2D p1) -> double {
         double t = std::abs(x - p0) / segment_length;
         t = std::clamp(t, 0.0, 1.0);  // safety clamp
 
-        return (1.0 - t) * temp_p1 + t * temp_p0;
+        double interpolated_T = (1.0 - t) * temp_p1 + t * temp_p0;
+
+        if (std::isnan(interpolated_T) || std::isinf(interpolated_T)) {
+            std::cerr << "[g(x)] ERROR: Interpolated temperature is invalid.\n";
+        }
+
+        return interpolated_T;
     }
     catch (const std::out_of_range& e) {
         std::cerr << "[g(x)] ERROR: Vertex not found in boundaryTemperatureMap.\n";
@@ -160,10 +197,10 @@ int main() {
         std::cout << "test_point = " << test_point << " and T_true" << T_true;
         
         // std::vector<double> epsilons = {0.01, 0.005, 0.00125, 0.0005, 0.00025, 0.000125, 5e-05, 2.5e-05, 1.25e-05};
-        std::vector<double> epsilons = {0.01, 0.005, 0.00125, 0.0005, 0.00025, 0.000125};
+        std::vector<double> epsilons = {0.005, 0.00125, 0.0005, 0.00025, 0.000125};
         // std::vector<double> epsilons = {0.005};
         const int nWalkLowerLimit = 1;
-        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 13));
+        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 21));
         const int nWalkIncrement = 1;
         std::vector<ExperimentResult> results;
 
@@ -173,8 +210,10 @@ int main() {
 
             std::cerr << "Solving for eps = " << eps << " ...\n";
 
+
             testSinglePointConvergenceWoSt(test_point, boundaryDirichlet, boundaryNeumann, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, results, g);
 
+        
             #ifdef ENABLE_INSTRUMENTATION
             double instrumentation_overhead = estimateInstrumentationOverheadPerWalk(nWalkUpperLimit);
 
@@ -185,8 +224,20 @@ int main() {
                     r.cumulative_time = std::max(0.0, adjusted_time); // clamp to non-negative
                 }
             }
-
             #endif
+
+            // Print final convergence time for this epsilon
+            auto it = std::find_if(results.rbegin(), results.rend(), [eps](const ExperimentResult& r) {
+                return r.epsilon == eps;
+            });
+
+            if (it != results.rend()) {
+                std::cout << "[Convergence] ε = " << eps 
+                        << " converged in " << it->cumulative_time << " seconds "
+                        << "after " << it->nWalks << " walks.\n";
+            } else {
+                std::cout << "[Convergence] ε = " << eps << " produced no results.\n";
+            }
         }
 
         writeResultsToCSV(results, "all_epsilon_convergence.csv");
