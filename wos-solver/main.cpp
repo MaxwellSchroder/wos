@@ -7,6 +7,30 @@
 
 using namespace std;
 
+std::pair<double, double> computeMeanAndStdDev(const std::deque<double>& values) {
+    if (values.empty()) {
+        return {0.0, 0.0};
+    }
+
+    double sum = 0.0;
+    for (double v : values) {
+        sum += v;
+    }
+    double mean = sum / values.size();
+
+    double sq_sum = 0.0;
+    for (double v : values) {
+        sq_sum += (v - mean) * (v - mean);
+    }
+
+    double stddev = 0.0;
+    if (values.size() > 1) {
+        stddev = std::sqrt(sq_sum / (values.size() - 1));  // unbiased sample stddev
+    }
+
+    return {mean, stddev};
+}
+
 // --- testSinglePointUsingStars ---
 void testSinglePointConvergenceWoSt(
     Vec2D x0,
@@ -22,14 +46,38 @@ void testSinglePointConvergenceWoSt(
 ) {
     double running_sum = 0.0;
     int walks_completed = 0;
-
     int failed_walk_count = 0;
+    int min_walks_required = static_cast<int>(std::pow(2, 10));
+
+    std::deque<double> recent_l1_errors;
+    int rse_buffer_size = 2000;
+    const double rse_threshold = 0.01;
+    std::cerr << "Ignoring maxwalks" << maxWalks << "\n";
     
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int walk_counter = 1; walk_counter <= maxWalks; ++walk_counter) {
-        double walk_result;
+    int walk_counter = 1;
+    while (true) {
+        rse_buffer_size = std::max(2000, std::min(walk_counter / 10, 10000));
 
+        // You have a minimum number of walks && RSE check if buffer is full
+        if ((walk_counter > min_walks_required) && (recent_l1_errors.size() == static_cast<size_t>(rse_buffer_size)) && (walk_counter%rse_buffer_size == 0)) {
+            auto [mean, stddev] = computeMeanAndStdDev(recent_l1_errors);
+            double rse = std::abs(stddev / mean);
+
+            std::cerr << "[RSE Check] ε = " << eps << ", RSE = " << rse << "\n";
+
+            if (rse < rse_threshold) {
+                std::cerr << "[Convergence] RSE threshold met. ε = " << eps << ", Walks = " << walk_counter << "\n";
+                break;
+            } else {
+                std::cerr << "[Convergence NOT met] RSE threshold not met. ε = " << eps << ", Walks = " << walk_counter << "\n";
+            }
+        }
+
+        
+        double walk_result;
+        // Just in case walk hits step limit
         while (true) {
             auto result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
             if (result.has_value()) {
@@ -60,9 +108,17 @@ void testSinglePointConvergenceWoSt(
             std::chrono::duration<double> elapsed = end - start;
 
             results.push_back({eps, walk_counter, l1_error, elapsed.count()});
+
+            // Update rolling buffer
+            recent_l1_errors.push_back(l1_error);
+            if (recent_l1_errors.size() > static_cast<size_t>(rse_buffer_size)) {
+                recent_l1_errors.pop_front();
+            }
         }
+        // Manual increment of walk counter
+        walk_counter++;
+        
     }
-    
     std::cerr << "WoST: Finished for Eps = " << eps << " | Failed walk count (number of exceeded maxWalks): " << failed_walk_count << " | Valid walks: " << walks_completed << "\n";
 }
 
@@ -200,7 +256,7 @@ int main() {
         std::vector<double> epsilons = {0.005, 0.00125, 0.0005, 0.00025, 0.000125};
         // std::vector<double> epsilons = {0.005};
         const int nWalkLowerLimit = 1;
-        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 21));
+        const int nWalkUpperLimit = static_cast<int>(std::pow(2, 15));
         const int nWalkIncrement = 1;
         std::vector<ExperimentResult> results;
 
