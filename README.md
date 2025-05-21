@@ -13,7 +13,6 @@ This project solves a 2D heat diffusion problem using a C++ solver and provides 
 
     ```bash
     git clone https://github.com/MaxwellSchroder/wos.git
-    cd wos
     ```
 
 2.  **Create and activate a Python virtual environment:**
@@ -21,6 +20,7 @@ This project solves a 2D heat diffusion problem using a C++ solver and provides 
     ```bash
     python3 -m venv venv
     source venv/bin/activate
+    pip install -r requirements.txt
     ```
 
 3.  **Install Python dependencies:**

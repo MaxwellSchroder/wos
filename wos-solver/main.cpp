@@ -4,6 +4,7 @@
 #include "csv_io.h"
 #include <iostream>
 #include <chrono>
+#include <tuple>
 
 using namespace std;
 
@@ -74,16 +75,19 @@ void testSinglePointConvergenceWoSt(
                 std::cerr << "[Convergence NOT met] RSE threshold not met. ε = " << eps << ", Walks = " << walk_counter << "\n";
             }
         }
-
         
         double walk_result;
+        int steps_in_walk;
         // Just in case walk hits step limit
         while (true) {
-            auto result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
-            if (result.has_value()) {
-                walk_result = result.value();
+            auto maybe_result = singleWalkStarEstimate(x0, boundaryDirichlet, boundaryNeumann, g, eps);
+            
+            if (maybe_result.has_value()) {
+                std::tie(walk_result, steps_in_walk) = maybe_result.value(); // or *maybe_result
                 break;
+                // use result and steps_in_walk
             } else {
+                // handle failure case
                 failed_walk_count++;
                 std::cerr << "Retrying walk... (total failures so far: " << failed_walk_count << ")\n";
             }
@@ -107,7 +111,7 @@ void testSinglePointConvergenceWoSt(
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = end - start;
 
-            results.push_back({eps, walk_counter, l1_error, elapsed.count()});
+            results.push_back({eps, walk_counter, l1_error, elapsed.count(), steps_in_walk});
 
             // Update rolling buffer
             recent_l1_errors.push_back(l1_error);
@@ -190,7 +194,7 @@ double estimateInstrumentationOverheadPerWalk(int nMaxWalk = 10000) {
         auto t0 = high_resolution_clock::now();
         auto t1 = high_resolution_clock::now();
         duration<double> elapsed = t1 - t0;
-        dummy_results.push_back({dummy_eps, dummy_n, dummy_error, elapsed.count()});
+        dummy_results.push_back({dummy_eps, dummy_n, dummy_error, elapsed.count(), 2});
     }
     auto end = high_resolution_clock::now();
     duration<double> total = end - start;

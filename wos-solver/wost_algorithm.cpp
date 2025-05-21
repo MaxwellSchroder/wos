@@ -9,6 +9,7 @@
 #include <vector>
 #include <fstream>
 #include <optional>
+#include <tuple>
 
 using namespace std;
 
@@ -115,7 +116,7 @@ Vec2D intersectPolylines(Vec2D x, Vec2D v, double r,
 }
 
 // --- Walk on Stars Solver ---
-std::optional<double> singleWalkStarEstimate(
+std::optional<std::tuple<double, float>> singleWalkStarEstimate(
     Vec2D x0,
     const vector<Polyline>& boundaryDirichlet,
     const vector<Polyline>& boundaryNeumann,
@@ -123,7 +124,8 @@ std::optional<double> singleWalkStarEstimate(
     double eps
 ) {
     const double rMin = 0.0001;
-    const int maxSteps = 65536; // typical for single walks
+    // const int maxSteps = 65536; // typical for single walks
+    const int maxSteps = 5000; // typical for single walks
 
     Vec2D x = x0; // start walk at the evaluation point
     Vec2D n{ 0.0, 0.0 }; // assume x0 is an interior point, and has no normal
@@ -157,8 +159,9 @@ std::optional<double> singleWalkStarEstimate(
         std::cerr << "[Walk Failed] Reached max steps or invalid point.\n";
         return std::nullopt;
     }
+    double gx = g(x, hit_p0, hit_p1);
 
-    return g(x, hit_p0, hit_p1);
+    return std::make_tuple(gx, steps);
 }
 
 // --- Domain Checking ---

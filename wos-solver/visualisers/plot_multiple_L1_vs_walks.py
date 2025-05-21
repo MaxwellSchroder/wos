@@ -10,6 +10,7 @@ epsilons = data[:, 0]
 n_walks = data[:, 1]
 l1_errors = data[:, 2]
 cumulative_time = data[:,3]
+steps = data[:,4]
 
 # Find unique epsilon values
 unique_epsilons = np.unique(epsilons)[::-1]  # Reverse the order
@@ -201,7 +202,322 @@ def show_relative_error_vs_N_Walks():
     plt.tight_layout()
     plt.show()
 
+def show_full_and_zoomed_step_distribution():
+    # Prepare step data grouped by epsilon
+    epsilon_to_steps = {}
+    for i in range(len(data)):
+        eps = epsilons[i]
+        step_count = steps[i]
+        if eps not in epsilon_to_steps:
+            epsilon_to_steps[eps] = []
+        epsilon_to_steps[eps].append(step_count)
+
+    # Sort and prepare data for plotting
+    sorted_epsilons = sorted(epsilon_to_steps.keys(), reverse=True)
+    step_distributions = [epsilon_to_steps[eps] for eps in sorted_epsilons]
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+    
+    fig.suptitle("Steps per Walk vs Epsilon Shell Size", fontsize=14)
+
+    # Full box plot
+    ax1.boxplot(step_distributions, vert=True, patch_artist=True, labels=labels, showfliers=True)
+    ax1.set_ylabel("Log Steps per Walk (Full Range)")
+    ax1.set_yscale('log')
+    ax1.set_title("Full Range (Log Scale)")
+    ax1.grid(axis='y', linestyle='--', alpha=0.6)
+    ax1.tick_params(labelbottom=True)
+
+    # Zoomed box plot (focus on IQR / 0–20 region)
+    ax2.boxplot(step_distributions, vert=True, patch_artist=True, labels=labels, showfliers=True)
+    ax2.set_ylim(0, 20)
+    ax2.set_ylabel("Steps per Walk")
+    ax2.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax2.set_title("Zoomed In on IQR (0–20 Steps)")
+    ax2.grid(axis='y', linestyle='--', alpha=0.6)
+
+    ax2.set_title("Zoomed In on IQR (0–20 Steps)")
+    
+    # Caption-style explanation below the bottom axis
+    fig.text(0.5, 0.01, 
+            "Smaller epsilon values increase precision but lead to longer walks.\n"
+            "Top panel uses a log scale to show full distribution (including outliers).\n"
+            "Bottom panel zooms into the interquartile range for clearer comparison.",
+            ha='center', fontsize=10)
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.4, bottom=0.2)
+    plt.show()
+
+def print_outlier_ratios():
+    print(f"{'Epsilon':<10} {'Samples':<10} {'Q3':<8} {'>Q3 Count':<12} {'Outlier Ratio'}")
+    print("-" * 55)
+
+    sorted_epsilons = sorted(epsilon_to_steps.keys(), reverse=True)
+    for eps in sorted_epsilons:
+        step_counts = np.array(epsilon_to_steps[eps])
+        q3 = np.percentile(step_counts, 75)
+        count_above_q3 = np.sum(step_counts > q3)
+        total = len(step_counts)
+        ratio = count_above_q3 / total
+        print(f"{eps:<10.0e} {total:<10} {q3:<8.1f} {count_above_q3:<12} {ratio:.3f}")
+
+def show_outlier_ratio_per_epsilon():
+    def print_outlier_ratios():
+        print(f"{'Epsilon':<10} {'Samples':<10} {'Q3':<8} {'>Q3 Count':<12} {'Outlier Ratio'}")
+        print("-" * 55)
+
+        sorted_epsilons = sorted(epsilon_to_steps.keys(), reverse=True)
+        for eps in sorted_epsilons:
+            step_counts = np.array(epsilon_to_steps[eps])
+            q3 = np.percentile(step_counts, 75)
+            count_above_q3 = np.sum(step_counts > q3)
+            total = len(step_counts)
+            ratio = count_above_q3 / total
+            print(f"{eps:<10.0e} {total:<10} {q3:<8.1f} {count_above_q3:<12} {ratio:.3f}")
+    
+    # Group steps by epsilon
+    epsilon_to_steps = {}
+    for i in range(len(data)):
+        eps = epsilons[i]
+        step_count = steps[i]
+        if eps not in epsilon_to_steps:
+            epsilon_to_steps[eps] = []
+        epsilon_to_steps[eps].append(step_count)
+
+    # Compute outlier ratios
+    sorted_epsilons = sorted(epsilon_to_steps.keys(), reverse=True)
+    outlier_ratios = []
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+
+    for eps in sorted_epsilons:
+        step_counts = np.array(epsilon_to_steps[eps])
+        q3 = np.percentile(step_counts, 75)
+        num_outliers = np.sum(step_counts > q3)
+        total = len(step_counts)
+        ratio = num_outliers / total
+        outlier_ratios.append(ratio)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 5))
+    bar_positions = np.arange(len(sorted_epsilons))
+    ax.bar(bar_positions, outlier_ratios, color='indianred')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax.set_ylabel("Outlier Ratio (> Q3)")
+    ax.set_title("Proportion of High-Step Outliers vs Epsilon Shell Size")
+
+    fig.suptitle("Outlier Frequency Remains Stable — More Samples ≠ Higher Risk", fontsize=14)
+    fig.text(
+        0.5, 0.02,
+        "Each bar shows the percentage of walks above the 75th percentile (Q3) for that epsilon.\n"
+        "Although smaller ε values produce more outlier steps in raw numbers, the proportion of such walks remains roughly constant, \n indicating that outliers are an expected statistical consequence of \n larger sample sizes, not increased instability",
+        ha='center', fontsize=10
+    )
+    
+    print_outlier_ratios()
+    
+    
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+    
+    
+def show_avg_time_per_walk_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Loop through the data and keep only the last row per epsilon
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i  # overwrite, so we keep the last occurrence
+
+    # Extract final cumulative time and n_walks for each epsilon group
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    avg_time_per_walk = []
+    for eps in sorted_epsilons:
+        idx = epsilon_to_final_row[eps]
+        final_time = cumulative_time[idx]
+        total_walks = n_walks[idx]
+        avg_time_per_walk.append(final_time / total_walks)
+
+
+
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    
+    # Convert seconds to milliseconds
+    avg_time_per_walk_ms = [t * 1000 for t in avg_time_per_walk]
+
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    bar_positions = np.arange(len(sorted_epsilons))
+    ax1.bar(bar_positions, avg_time_per_walk_ms, color='mediumslateblue')
+
+    ax1.set_xticks(bar_positions)
+    ax1.set_xticklabels(labels, rotation=45)
+    ax1.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax1.set_ylabel("Average Time per Walk (ms)")
+    ax1.set_title("Average Time per Walk vs Epsilon Shell Size")
+
+    fig.suptitle("Smaller ε Increases Computational Cost per Walk", fontsize=14)
+    fig.text(
+        0.5, 0.02,
+        "Final cumulative time divided by number of walks gives the average time per walk for each epsilon.\n"
+        "As epsilon decreases, more steps are needed per walk, increasing runtime per estimate.",
+        ha='center', fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+def show_avg_time_and_walks_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Group by epsilon: keep last index per epsilon
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i
+
+    # Extract final values for each epsilon
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    avg_time_per_walk_ms = []
+    total_walks_per_epsilon = []
+
+    for eps in sorted_epsilons:
+        idx = epsilon_to_final_row[eps]
+        final_time = cumulative_time[idx]
+        total_walks = n_walks[idx]
+        avg_time_per_walk_ms.append((final_time / total_walks) * 1000)  # convert to ms
+        total_walks_per_epsilon.append(total_walks)
+
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+
+    # Left Y-axis: Average time per walk (ms)
+    ax1.bar(bar_positions, avg_time_per_walk_ms, color='mediumslateblue')
+    ax1.set_ylabel("Avg Time per Walk (ms)", color='mediumslateblue')
+    ax1.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax1.set_xticks(bar_positions)
+    ax1.set_xticklabels(labels, rotation=45)
+    ax1.tick_params(axis='y', labelcolor='mediumslateblue')
+
+    # Right Y-axis: Total number of walks
+    ax2 = ax1.twinx()
+    ax2.plot(bar_positions, total_walks_per_epsilon, 'o--', color='darkorange', label='Total Walks')
+    ax2.set_ylabel("Total Walks to Converge", color='darkorange')
+    ax2.tick_params(axis='y', labelcolor='darkorange')
+
+    # Titles and caption
+    fig.suptitle("How Epsilon Affects Time per Walk and Total Walks", fontsize=14)
+    ax1.set_title("Balancing Walk Cost vs Quantity as Epsilon Decreases")
+    fig.text(
+        0.5, 0.02,
+        "Smaller epsilon shells require more steps per walk (↑ time/walk) and more walks for convergence.\n"
+        "This chart compares both to understand which dominates total compute cost.",
+        ha='center', fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+def show_total_walks_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Find the last row for each epsilon group
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i
+
+    # Extract total walks at convergence
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    total_walks = [n_walks[epsilon_to_final_row[eps]] for eps in sorted_epsilons]
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(bar_positions, total_walks, color='darkorange')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax.set_ylabel("Total Number of Walks to Convergence")
+    ax.set_title("Total Walks Required vs Epsilon Shell Size")
+
+    fig.suptitle("More Walks Are Needed as Epsilon Decreases", fontsize=14)
+    fig.text(
+        0.5, 0.02,
+        "Each bar shows how many Monte Carlo walks were performed before convergence was reached.\n"
+        "Smaller epsilon values increase required precision, which leads to a higher number of total walks.",
+        ha='center', fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+def show_cumulative_time_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Find the last row for each epsilon group
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i
+
+    # Extract final cumulative execution time per epsilon
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    cumulative_times = [cumulative_time[epsilon_to_final_row[eps]] for eps in sorted_epsilons]
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Convert to milliseconds for better readability
+    cumulative_times_ms = [t for t in cumulative_times]
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(bar_positions, cumulative_times_ms, color='steelblue')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax.set_ylabel("Total Cumulative Time to Converge (s)")
+    ax.set_title("Cumulative Execution Time vs Epsilon Shell Size")
+
+    fig.suptitle("Total Runtime Increases with Smaller Epsilon", fontsize=14)
+    fig.text(
+        0.5, 0.02,
+        "Final cumulative time per epsilon group shows total compute cost for convergence.\n"
+        "As epsilon decreases, both walk length and number of walks increase total runtime.",
+        ha='center', fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+
 if __name__ == "__main__":
     # show_L1_error_vs_time()
-    # show_time_vs_epsilon()
-    show_L1_error_vs_N_Walks()
+    # show_L1_error_vs_N_Walks()
+    
+    
+    # show_time_vs_epsilon() ASS
+    
+    
+    # show_full_and_zoomed_step_distribution()
+    show_outlier_ratio_per_epsilon()
+    
+    # show_avg_time_and_walks_vs_epsilon() SUCKS
+    
+    # show_avg_time_per_walk_vs_epsilon() 
+    # show_total_walks_vs_epsilon()
+    # show_cumulative_time_vs_epsilon()
+    

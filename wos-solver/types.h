@@ -78,4 +78,5 @@ struct ExperimentResult {
     int nWalks;
     double l1_error;
     double cumulative_time;
+    int steps;
 };
