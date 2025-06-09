@@ -17,6 +17,7 @@ from math import log, cos, pi, sin, tan
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.tri as tri
+from scipy.interpolate import griddata
 
 
 # we make these sympy symbols global because we may want to
@@ -168,6 +169,47 @@ def plot_cartesian_temperature(xyt_solution):
     plt.xlabel('x [m]')
     plt.ylabel('y [m]')
     plt.show()
+    
+
+# def plot_cartesian_temperature_interior(xyt_solution):
+#     x_vals = [x for x, y, t in xyt_solution]
+#     y_vals = [y for x, y, t in xyt_solution]
+#     t_vals = [t for x, y, t in xyt_solution]
+
+#     plt.figure()
+#     plt.scatter(x_vals, y_vals, c=t_vals, cmap='hot')
+#     plt.gca().set_aspect('equal')
+#     plt.colorbar(label='Temperature (K)')
+#     plt.title("Temperature distribution in Cartesian (x, y) space")
+#     plt.xlabel('x [m]')
+#     plt.ylabel('y [m]')
+#     plt.show()
+
+def plot_cartesian_temperature_interior(xyt_solution):
+    # Extract x, y, T
+    x_vals = np.array([x for x, y, t in xyt_solution])
+    y_vals = np.array([y for x, y, t in xyt_solution])
+    t_vals = np.array([t for x, y, t in xyt_solution])
+
+    # Define grid resolution
+    grid_res = 300
+    xi = np.linspace(min(x_vals), max(x_vals), grid_res)
+    yi = np.linspace(min(y_vals), max(y_vals), grid_res)
+    xi, yi = np.meshgrid(xi, yi)
+
+    # Interpolate scattered temperature data onto grid
+    zi = griddata((x_vals, y_vals), t_vals, (xi, yi), method='cubic')  # or 'linear'
+
+    # Plot interpolated heatmap
+    plt.figure(figsize=(8, 6))
+    heatmap = plt.contourf(xi, yi, zi, levels=100, cmap='hot')
+    plt.gca().set_aspect('equal')
+    plt.colorbar(heatmap, label='Temperature (K)')
+    plt.title("Interpolated Temperature Distribution in Cartesian Space")
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.tight_layout()
+    plt.show()
 
 def test():
     cyl, R_i, R_o = setup_problem()
@@ -183,7 +225,8 @@ def test():
     write_to_csv(interior_temperature_solution_xyt, filename="interior_T_solution.csv")
     write_to_csv(boundary_coordinates, filename="boundary_representation.csv", type=True)
 
-    plot_cartesian_temperature(boundary_coordinates)
+    # plot_cartesian_temperature(boundary_coordinates)
+    plot_cartesian_temperature_interior(interior_temperature_solution_xyt)
 
 if __name__ == '__main__':
     test()

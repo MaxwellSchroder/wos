@@ -4,13 +4,20 @@ import matplotlib.ticker as ticker
 from scipy.stats import linregress
 
 # Load CSV, skip header row
-data = np.loadtxt("../all_epsilon_convergence.csv", delimiter=',', skiprows=1)
+data = np.loadtxt("../full_solves/all_epsilon_convergence_7.csv", delimiter=',', skiprows=1)
+# data = np.loadtxt("../all_epsilon_convergence.csv", delimiter=',', skiprows=1)
+
+# data = np.loadtxt("../interior_point_experiment/dirichlet_solve2.csv", delimiter=',', skiprows=1)
+# data = np.loadtxt("../interior_point_experiment/centroid_solve.csv", delimiter=',', skiprows=1)
+# data = np.loadtxt("../interior_point_experiment/neumann_solve2.csv", delimiter=',', skiprows=1)
 
 epsilons = data[:, 0]
 n_walks = data[:, 1]
 l1_errors = data[:, 2]
 cumulative_time = data[:,3]
 steps = data[:,4]
+
+hardcoded_true_T_solution = 366.6345156816051
 
 # Find unique epsilon values
 unique_epsilons = np.unique(epsilons)[::-1]  # Reverse the order
@@ -119,7 +126,98 @@ def show_L1_error_vs_time():
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.tight_layout()
     plt.show()
-    
+
+def show_percent_error_vs_time():
+    hardcoded_true_T_solution = 366.6345156816051
+
+    fig, ax1 = plt.subplots()
+
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+        percent_error = (l1_errors[mask] / hardcoded_true_T_solution) * 100
+
+        ax1.plot(
+            cumulative_time[mask],
+            percent_error,
+            marker='o',
+            linestyle='-',
+            linewidth=1,
+            markersize=2,
+            label=f"ε = {eps:.3g}"
+        )
+
+    # X-Axis
+    ax1.set_xlabel("Time (seconds)", fontsize=12)
+
+    # Y-Axis: linear % error
+    ax1.set_ylabel("Relative Error (%)", fontsize=12)
+    ax1.set_ylim(0, min(1, np.max(percent_error) * 1.1))  # auto-scale but clamp below 10% range
+
+    # Title, legend, grid
+    ax1.set_title("Percent Error vs Execution Time")
+    ax1.legend(title="Epsilon Values", fontsize=10, title_fontsize=11)
+    ax1.grid(True, linestyle='--', linewidth=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+def show_l1_and_percent_error_vs_time():
+    hardcoded_true_T_solution = 366.6345156816051
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True, gridspec_kw={'height_ratios': [1, 1]})
+
+    # --- Upper plot: Log L1 Error ---
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+        ax1.plot(
+            cumulative_time[mask],
+            l1_errors[mask],
+            marker='o',
+            linestyle='-',
+            linewidth=1,
+            markersize=2,
+            label=f"ε = {eps:.3g}"
+        )
+
+    ax1.set_yscale('log')
+    ax1.set_ylabel("Log L1 Error", fontsize=12)
+    ax1.set_title("Log L1 Error vs Execution Time")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax1.legend(title="Epsilon", fontsize=10, title_fontsize=11)
+    ax1.tick_params(labelbottom=True)
+
+    # --- Lower plot: Percent Relative Error ---
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+        percent_error = (l1_errors[mask] / hardcoded_true_T_solution) * 100
+        ax2.plot(
+            cumulative_time[mask],
+            percent_error,
+            marker='o',
+            linestyle='-',
+            linewidth=1,
+            markersize=2,
+            label=f"ε = {eps:.3g}"
+        )
+
+    ax2.set_ylabel("Relative Error (%)", fontsize=12)
+    ax2.set_xlabel("Time (seconds)", fontsize=12)
+    ax2.set_ylim(0, min(1, np.max(percent_error) * 1.1))
+    ax2.set_title("Percent Relative Error vs Execution Time")
+    ax2.grid(True, linestyle='--', linewidth=0.5)
+
+    # --- Layout and caption ---
+    fig.suptitle("Comparison of Absolute and Relative Error Over Time", fontsize=14)
+    fig.text(
+        0.5, 0.01,
+        "Top panel shows absolute L1 error on a log scale.\nBottom panel shows relative error as a percentage of the true value (T = 366.63 K).",
+        ha='center', fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.4, bottom=0.18)
+    plt.show()
+
 def show_L1_error_vs_N_Walks():
     fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(8, 10), sharex=True)
     
@@ -166,6 +264,228 @@ def show_L1_error_vs_N_Walks():
     ## SAVE
     # plt.savefig("l1_convergence_multiple_epsilons.png", dpi=300)
     # plt.savefig("Log_Log_l1_convergence_multiple_epsilons.png", dpi=300)
+
+def show_L1_error_vs_N_Walks_single():
+    fig, ax1 = plt.subplots(figsize=(7, 4))
+
+    for eps in unique_epsilons:
+        mask = epsilons == eps
+
+        x = n_walks[mask]
+        y = l1_errors[mask]
+
+        ax1.plot(x, y, marker='o', linestyle='-', linewidth=1, markersize=2, label=f"ε = {eps:.3g}")
+
+    # Log-Log Plot
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xlabel("Log Number of Walks (N)")
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_title("Log-Log Convergence of WoS at a Single Point")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # Reference convergence line (O(1/√N))
+    ref_x = np.array([min(n_walks), max(n_walks)])
+    ref_y = l1_errors[0] * (ref_x / n_walks[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
+
+    ax1.legend(title="Epsilon Values", fontsize=9, title_fontsize=10)
+
+    plt.tight_layout()
+    plt.show()
+
+def show_L1_error_vs_N_Walks_multiple_points():
+    # Load datasets for 3 interior points
+    centroid_data = np.loadtxt("../interior_point_experiment/centroid_solve.csv", delimiter=',', skiprows=1)
+    dirichlet_data = np.loadtxt("../interior_point_experiment/dirichlet_solve.csv", delimiter=',', skiprows=1)
+    neumann_data = np.loadtxt("../interior_point_experiment/neumann_solve.csv", delimiter=',', skiprows=1)
+
+    # Unpack columns: assuming consistent structure [epsilon, n_walks, l1_error, time, steps, ...]
+    centroid_n = centroid_data[:, 1]
+    centroid_l1 = centroid_data[:, 2]
+
+    dirichlet_n = dirichlet_data[:, 1]
+    dirichlet_l1 = dirichlet_data[:, 2]
+
+    neumann_n = neumann_data[:, 1]
+    neumann_l1 = neumann_data[:, 2]
+
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(7, 4))
+
+    ax1.plot(centroid_n, centroid_l1, 'o-', linewidth=1, markersize=2, label="Centroid Point")
+    ax1.plot(dirichlet_n, dirichlet_l1, 's-', linewidth=1, markersize=2, label="Near Dirichlet Boundary")
+    ax1.plot(neumann_n, neumann_l1, '^-', linewidth=1, markersize=2, label="Near Neumann Boundary")
+
+    # Log-Log Axes
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xlabel("Number of Walks (N)")
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_title("Log-Log Convergence at Different Interior Points. Eps = 0.00125")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # Reference convergence line
+    ref_x = np.array([min(centroid_n), max(centroid_n)])
+    ref_y = centroid_l1[0] * (ref_x / centroid_n[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
+
+    ax1.legend(title="Interior Evaluation Points", fontsize=9, title_fontsize=10)
+    plt.tight_layout()
+    plt.show()
+    
+def show_L1_error_vs_N_Walks_multiple_seeds():
+    # Load datasets for 3 interior points
+    seed1234_data = np.loadtxt("../seed/seed1234.csv", delimiter=',', skiprows=1)
+    seed5678_data = np.loadtxt("../seed/seed5678.csv", delimiter=',', skiprows=1)
+    seed9123_data = np.loadtxt("../seed/seed9123.csv", delimiter=',', skiprows=1)
+    seed4567_data = np.loadtxt("../seed/seed4567.csv", delimiter=',', skiprows=1)
+    seed8912_data = np.loadtxt("../seed/seed8912.csv", delimiter=',', skiprows=1)
+
+    # Unpack columns: assuming consistent structure [epsilon, n_walks, l1_error, time, steps, ...]
+    seed1234_n = seed1234_data[:, 1]
+    seed1234_l1 = seed1234_data[:, 2]
+
+    seed5678_n = seed5678_data[:, 1]
+    seed5678_l1 = seed5678_data[:, 2]
+    
+    seed9123_n = seed9123_data[:, 1]
+    seed9123_l1 = seed9123_data[:, 2]
+    
+    seed4567_n = seed4567_data[:, 1]
+    seed4567_l1 = seed4567_data[:, 2]
+    
+    seed8912_n = seed8912_data[:, 1]
+    seed8912_l1 = seed8912_data[:, 2]
+
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(7, 4))
+
+    ax1.plot(seed1234_n, seed1234_l1, 'o-', linewidth=1, markersize=2, label="Seed 1234")
+    ax1.plot(seed5678_n, seed5678_l1, 's-', linewidth=1, markersize=2, label="Seed 5678")
+    ax1.plot(seed9123_n, seed9123_l1, 's-', linewidth=1, markersize=2, label="Seed 9123")
+    ax1.plot(seed4567_n, seed4567_l1, 's-', linewidth=1, markersize=2, label="Seed 4567")
+    ax1.plot(seed8912_n, seed8912_l1, 's-', linewidth=1, markersize=2, label="Seed 8912")
+
+    # Log-Log Axes
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xlabel("Number of Walks (N)")
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_title("Log-Log Convergence at Different Seeds at Same Centroid Point. Eps = 0.0003125")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # Reference convergence line
+    ref_x = np.array([min(seed1234_n), max(seed1234_n)])
+    ref_y = seed1234_l1[0] * (ref_x / seed1234_l1[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
+
+    ax1.legend(title="Seeds", fontsize=9, title_fontsize=10)
+    plt.tight_layout()
+    plt.show()
+
+def show_final_L1_error_bar_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Find the last row for each epsilon group
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i
+
+    # Reverse-sorted epsilon values for visual clarity (big to small)
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    final_l1_errors = [l1_errors[epsilon_to_final_row[eps]] for eps in sorted_epsilons]
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(3, 4))
+    ax.bar(bar_positions, final_l1_errors, color='steelblue')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value \n (log scale, decreasing)")
+    ax.set_ylabel("Final L1 Error")
+    ax.set_title("Final L1 Error vs Epsilon Shell Size")
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+def show_final_relative_error_bar_vs_epsilon():
+    epsilon_to_final_row = {}
+
+    # Find the last row for each epsilon group
+    for i in range(len(data)):
+        eps = epsilons[i]
+        epsilon_to_final_row[eps] = i
+
+    # Reverse-sorted epsilon values (largest to smallest)
+    sorted_epsilons = sorted(epsilon_to_final_row.keys(), reverse=True)
+    
+    # Compute relative error (%) at final convergence point
+    final_relative_errors = [
+        (l1_errors[epsilon_to_final_row[eps]] / hardcoded_true_T_solution) * 100
+        for eps in sorted_epsilons
+    ]
+
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(3, 4))
+    ax.bar(bar_positions, final_relative_errors, color='crimson')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value \n (log scale, decreasing)")
+    ax.set_ylabel("Final Relative Error (%)")
+    ax.set_title("Final Relative Error vs Epsilon Shell Size")
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
+
+## -- BOUNDARY --
+def show_L1_error_vs_N_Walks_multiple_geometry_representations():
+    # Load datasets for 3 interior points
+    boundary_2020_data = np.loadtxt("../geometry_experiments/all_epsilon_convergence_2020.csv", delimiter=',', skiprows=1)
+    boundary_4040_data = np.loadtxt("../geometry_experiments/all_epsilon_convergence_4040.csv", delimiter=',', skiprows=1)
+    boundary_8080_data = np.loadtxt("../geometry_experiments/all_epsilon_convergence_8080.csv", delimiter=',', skiprows=1)
+
+    # Unpack columns: assuming consistent structure [epsilon, n_walks, l1_error, time, steps, ...]
+    boundary_2020_n = boundary_2020_data[:, 1]
+    boundary_2020_l1 = boundary_2020_data[:, 2]
+
+    boundary_4040_n = boundary_4040_data[:, 1]
+    boundary_4040_l1 = boundary_4040_data[:, 2]
+    
+    boundary_8080_n = boundary_8080_data[:, 1]
+    boundary_8080_l1 = boundary_8080_data[:, 2]
+
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(7, 4))
+
+    ax1.plot(boundary_2020_n, boundary_2020_l1, 'o-', linewidth=1, markersize=2, label="Boundary: 20 radius, 20 theta")
+    ax1.plot(boundary_4040_n, boundary_4040_l1, 's-', linewidth=1, markersize=2, label="Boundary: 40 radius, 40 theta")
+    ax1.plot(boundary_8080_n, boundary_8080_l1, 's-', linewidth=1, markersize=2, label="Boundary: 80 radius, 80 theta")
+
+    # Log-Log Axes
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xlabel("Number of Walks (N)")
+    ax1.set_ylabel("Log L1 Error")
+    ax1.set_title("Log-Log Convergence at Different Boundaries \n 2020, 4040, 8080 at Same Centroid Point. Eps = 0.0003125")
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # Reference convergence line
+    ref_x = np.array([min(boundary_2020_n), max(boundary_2020_n)])
+    ref_y = boundary_2020_l1[0] * (ref_x / boundary_2020_l1[0])**(-0.5)
+    ax1.plot(ref_x, ref_y, 'k--', label="Reference: slope = -0.5", alpha=0.7)
+
+    ax1.legend(title="Seeds", fontsize=9, title_fontsize=10)
+    plt.tight_layout()
+    plt.show()
 
 def show_relative_error_vs_N_Walks():
     fig, (ax1) = plt.subplots(nrows=2, figsize=(8, 10), sharex=True)
@@ -240,11 +560,11 @@ def show_full_and_zoomed_step_distribution():
     ax2.set_title("Zoomed In on IQR (0–20 Steps)")
     
     # Caption-style explanation below the bottom axis
-    fig.text(0.5, 0.01, 
-            "Smaller epsilon values increase precision but lead to longer walks.\n"
-            "Top panel uses a log scale to show full distribution (including outliers).\n"
-            "Bottom panel zooms into the interquartile range for clearer comparison.",
-            ha='center', fontsize=10)
+    # fig.text(0.5, 0.01, 
+    #         "Smaller epsilon values increase precision but lead to longer walks.\n"
+    #         "Top panel uses a log scale to show full distribution (including outliers).\n"
+    #         "Bottom panel zooms into the interquartile range for clearer comparison.",
+    #         ha='center', fontsize=10)
 
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.4, bottom=0.2)
@@ -326,6 +646,35 @@ def show_outlier_ratio_per_epsilon():
     plt.subplots_adjust(bottom=0.25)
     plt.show()
     
+def show_avg_steps_per_walk_vs_epsilon():
+    # Group steps by epsilon
+    epsilon_to_steps = {}
+    for i in range(len(data)):
+        eps = epsilons[i]
+        step_count = steps[i]
+        if eps not in epsilon_to_steps:
+            epsilon_to_steps[eps] = []
+        epsilon_to_steps[eps].append(step_count)
+
+    # Sort epsilon groups (biggest to smallest)
+    sorted_epsilons = sorted(epsilon_to_steps.keys(), reverse=True)
+    avg_steps = [np.mean(epsilon_to_steps[eps]) for eps in sorted_epsilons]
+    labels = [f"{eps:.0e}" for eps in sorted_epsilons]
+    bar_positions = np.arange(len(sorted_epsilons))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(3, 4))
+    ax.bar(bar_positions, avg_steps, color='darkgreen')
+
+    ax.set_xticks(bar_positions)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_xlabel("Epsilon Shell Value \n (log scale, decreasing)")
+    ax.set_ylabel("Average Steps per Walk")
+    ax.set_title("Average Steps per Walk \n vs Epsilon Shell Size")
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    plt.show()
     
 def show_avg_time_per_walk_vs_epsilon():
     epsilon_to_final_row = {}
@@ -344,31 +693,29 @@ def show_avg_time_per_walk_vs_epsilon():
         total_walks = n_walks[idx]
         avg_time_per_walk.append(final_time / total_walks)
 
-
-
     labels = [f"{eps:.0e}" for eps in sorted_epsilons]
     
     # Convert seconds to milliseconds
     avg_time_per_walk_ms = [t * 1000 for t in avg_time_per_walk]
 
     # Plot
-    fig, ax1 = plt.subplots(figsize=(10, 5))
+    fig, ax1 = plt.subplots(figsize=(3, 4))
     bar_positions = np.arange(len(sorted_epsilons))
     ax1.bar(bar_positions, avg_time_per_walk_ms, color='mediumslateblue')
 
     ax1.set_xticks(bar_positions)
     ax1.set_xticklabels(labels, rotation=45)
-    ax1.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
+    ax1.set_xlabel("Epsilon Shell Value \n (log scale, decreasing)")
     ax1.set_ylabel("Average Time per Walk (ms)")
-    ax1.set_title("Average Time per Walk vs Epsilon Shell Size")
+    ax1.set_title("Average Time per Walk \n vs Epsilon Shell Size")
 
-    fig.suptitle("Smaller ε Increases Computational Cost per Walk", fontsize=14)
-    fig.text(
-        0.5, 0.02,
-        "Final cumulative time divided by number of walks gives the average time per walk for each epsilon.\n"
-        "As epsilon decreases, more steps are needed per walk, increasing runtime per estimate.",
-        ha='center', fontsize=10
-    )
+    # fig.suptitle("Smaller ε Increases Computational Cost per Walk", fontsize=14)
+    # fig.text(
+    #     0.5, 0.02,
+    #     "Final cumulative time divided by number of walks gives the average time per walk for each epsilon.\n"
+    #     "As epsilon decreases, more steps are needed per walk, increasing runtime per estimate.",
+    #     ha='center', fontsize=10
+    # )
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
@@ -443,22 +790,22 @@ def show_total_walks_vs_epsilon():
     bar_positions = np.arange(len(sorted_epsilons))
 
     # Plot
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(3, 4))
     ax.bar(bar_positions, total_walks, color='darkorange')
 
     ax.set_xticks(bar_positions)
     ax.set_xticklabels(labels, rotation=45)
-    ax.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
-    ax.set_ylabel("Total Number of Walks to Convergence")
-    ax.set_title("Total Walks Required vs Epsilon Shell Size")
+    ax.set_xlabel("Epsilon Shell Value \n (log scale, decreasing)")
+    ax.set_ylabel("Number of Walks to Converge")
+    ax.set_title("N Walks Needed to Converge \n vs Epsilon Shell Size")
 
-    fig.suptitle("More Walks Are Needed as Epsilon Decreases", fontsize=14)
-    fig.text(
-        0.5, 0.02,
-        "Each bar shows how many Monte Carlo walks were performed before convergence was reached.\n"
-        "Smaller epsilon values increase required precision, which leads to a higher number of total walks.",
-        ha='center', fontsize=10
-    )
+    # fig.suptitle("More Walks Are Needed as Epsilon Decreases", fontsize=14)
+    # fig.text(
+    #     0.5, 0.02,
+    #     "Each bar shows how many Monte Carlo walks were performed before convergence was reached.\n"
+    #     "Smaller epsilon values increase required precision, which leads to a higher number of total walks.",
+    #     ha='center', fontsize=10
+    # )
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
@@ -482,38 +829,47 @@ def show_cumulative_time_vs_epsilon():
     cumulative_times_ms = [t for t in cumulative_times]
 
     # Plot
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(8, 3))
     ax.bar(bar_positions, cumulative_times_ms, color='steelblue')
 
     ax.set_xticks(bar_positions)
     ax.set_xticklabels(labels, rotation=45)
     ax.set_xlabel("Epsilon Shell Value (log scale, decreasing)")
-    ax.set_ylabel("Total Cumulative Time to Converge (s)")
-    ax.set_title("Cumulative Execution Time vs Epsilon Shell Size")
+    ax.set_ylabel("Time to Convergence (s)")
+    ax.set_title("Time to Convergence vs Epsilon Shell Size")
 
-    fig.suptitle("Total Runtime Increases with Smaller Epsilon", fontsize=14)
-    fig.text(
-        0.5, 0.02,
-        "Final cumulative time per epsilon group shows total compute cost for convergence.\n"
-        "As epsilon decreases, both walk length and number of walks increase total runtime.",
-        ha='center', fontsize=10
-    )
+    # fig.suptitle("Total Runtime Increases with Smaller Epsilon", fontsize=14)
+    # fig.text(
+    #     0.5, 0.02,
+    #     "Final cumulative time per epsilon group shows total compute cost for convergence.\n"
+    #     "As epsilon decreases, both walk length and number of walks increase total runtime.",
+    #     ha='center', fontsize=10
+    # )
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
     plt.show()
 
-
 if __name__ == "__main__":
     # show_L1_error_vs_time()
-    # show_L1_error_vs_N_Walks()
+    # show_percent_error_vs_time()
+    # show_l1_and_percent_error_vs_time()
     
+    # show_L1_error_vs_N_Walks()
+    # show_L1_error_vs_N_Walks_single()
+    # show_L1_error_vs_N_Walks_multiple_points()
+    # show_final_L1_error_bar_vs_epsilon()
+    # show_final_relative_error_bar_vs_epsilon()
+    
+    # show_L1_error_vs_N_Walks_multiple_seeds()
+    # show_L1_error_vs_N_Walks_multiple_geometry_representations()
     
     # show_time_vs_epsilon() ASS
     
-    
+    #  STEPS!!
     # show_full_and_zoomed_step_distribution()
-    show_outlier_ratio_per_epsilon()
+    # show_outlier_ratio_per_epsilon()
+    show_avg_steps_per_walk_vs_epsilon()
     
     # show_avg_time_and_walks_vs_epsilon() SUCKS
     

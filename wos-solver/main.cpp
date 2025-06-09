@@ -240,25 +240,48 @@ void print_boundaries() {
 
 int main() {
     // Attempt to read in boundary, both dirichlet and Neumann. Generate the Polylines.
-    readCSVandAppendSegmentsAdvancedWithType("boundary_representation.csv", boundaryDirichlet, boundaryNeumann, boundaryTemperatureMap);
+    readCSVandAppendSegmentsAdvancedWithType("boundaries/boundary_representation_2020.csv", boundaryDirichlet, boundaryNeumann, boundaryTemperatureMap);
 
     // --- Read in boundary of dirichlet and Neumann
     std::vector<std::tuple<Vec2D, double>> interior_points_T;
-    readInteriorPointsT("interior_T_solution.csv", interior_points_T);
+    readInteriorPointsT("boundaries/interior_T_solution_2020.csv", interior_points_T);
 
     // Testing a single point for convergence
     if (!interior_points_T.empty()) {
         int n_thetas = 20;
         int n_radii = 20;
         int flat_index = (n_thetas / 2) * n_radii + (n_radii / 2);
+
+        // Go for close to neumann boundary, one row in
+        // int flat_index = (n_thetas * 1) + (n_radii / 2);
+
+        // Go for close to boundary boundary, middle angle
+        // int flat_index = (n_thetas / 2) + (n_radii - 2);
+
         std::cout << "Calculated flat index for middle point: " << flat_index << std::endl;
 
         auto [test_point, T_true] = interior_points_T[flat_index]; // test_point::(x,y), t_true::Int
         std::cout << "test_point = " << test_point << " and T_true" << T_true;
         
-        // std::vector<double> epsilons = {0.01, 0.005, 0.00125, 0.0005, 0.00025, 0.000125, 5e-05, 2.5e-05, 1.25e-05};
-        std::vector<double> epsilons = {0.005, 0.00125, 0.0005, 0.00025, 0.000125};
-        // std::vector<double> epsilons = {0.005};
+        std::vector<double> epsilons = {
+            0.005,
+            0.0025,
+            0.00125,
+            0.000625,
+            0.0003125,
+            0.00015625,
+            0.000078125
+        };
+
+        // std::vector<double> epsilons = {
+        //     0.0003125,
+        //     0.00015625,
+        //     0.000078125,
+        //     0.0000390625,
+        //     0.00001953125,
+        //     0.000009765625
+        // };
+
         const int nWalkLowerLimit = 1;
         const int nWalkUpperLimit = static_cast<int>(std::pow(2, 15));
         const int nWalkIncrement = 1;
@@ -266,14 +289,12 @@ int main() {
 
         for (double eps : epsilons) {
             // seed random for reproduceable results
-            srand(1234); // srand( time(NULL) );
+            srand(8912); // srand ( time(NULL) );
 
             std::cerr << "Solving for eps = " << eps << " ...\n";
 
-
             testSinglePointConvergenceWoSt(test_point, boundaryDirichlet, boundaryNeumann, T_true, nWalkLowerLimit, nWalkUpperLimit, nWalkIncrement, eps, results, g);
 
-        
             #ifdef ENABLE_INSTRUMENTATION
             double instrumentation_overhead = estimateInstrumentationOverheadPerWalk(nWalkUpperLimit);
 
